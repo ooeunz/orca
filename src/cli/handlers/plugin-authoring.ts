@@ -19,6 +19,7 @@ import {
   requirePluginPathArg,
   resolveLocalPluginPath
 } from '../plugin-authoring/plugin-cli-output'
+import { writePluginTypeFiles } from '../plugin-authoring/plugin-type-files'
 import { RuntimeClientError } from '../runtime/types'
 import { PLUGIN_INVALID_CODE } from '../../shared/plugins/approval/plugin-cli-approval'
 
@@ -115,8 +116,32 @@ export const PLUGIN_AUTHORING_HANDLERS: Record<string, CommandHandler> = {
       [
         `Created ${created.pluginKey} from the ${template} template in ${created.path}`,
         ...created.files.map((file) => `  ${file}`),
+        ...(created.typeFiles.length > 0
+          ? [`  ${created.typeFiles.join(', ')} (generated typings, ignored by Git)`]
+          : []),
         ...formatGrants(report),
         'Next: orca plugin dev load <dir>'
+      ].join('\n')
+    )
+  },
+  'plugin types': async (ctx) => {
+    const dir = resolveLocalPluginPath(ctx, requirePluginPathArg(ctx, 'dir'), 'types')
+    let files: string[]
+    try {
+      files = await writePluginTypeFiles(dir)
+    } catch (error) {
+      throw new RuntimeClientError(
+        'invalid_argument',
+        `cannot write typings into ${dir}: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+    printPluginResult(
+      ctx,
+      { path: dir, files },
+      [
+        `Wrote Orca plugin typings into ${dir}:`,
+        ...files.map((file) => `  ${file}`),
+        'Extend them from tsconfig.json: { "extends": "./.orca/types/tsconfig.json" }'
       ].join('\n')
     )
   },
