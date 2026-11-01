@@ -36,7 +36,7 @@ it('blocks fresh work while removal is pending and restores admission after fail
   try {
     await entered.promise
     const workers = uninstallWorkerPorts.length
-    expect(service.getGrantedCapabilities(key)).toEqual(['workspace:read', 'agent:read'])
+    expect(service.getGrantedCapabilities(key)).toBeNull()
     expect(service.getLogs(key)).toHaveLength(200)
     await expect(service.invokeCommand(key, 'run')).rejects.toThrow('not enabled')
     await expect(service.panels.readEntry(key, 'panel')).resolves.toBeNull()

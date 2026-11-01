@@ -316,7 +316,11 @@ describe('executePluginHostCall frame desktop methods', () => {
       })
 
     await expect(call({})).resolves.toEqual({ ok: true, value: { opened: true } })
-    expect(desktop.openExternal).toHaveBeenCalledWith('samples.demo', 'https://example.com/docs')
+    expect(desktop.openExternal).toHaveBeenCalledWith(
+      'samples.demo',
+      'https://example.com/docs',
+      expect.objectContaining({ assertActive: expect.any(Function) })
+    )
     await expect(call({ grantedCapabilities: null })).resolves.toMatchObject({
       code: 'consent_required'
     })
@@ -357,7 +361,7 @@ describe('executePluginHostCall frame desktop methods', () => {
 
     await expect(save({ ...createServices(vi.fn()), desktop })).resolves.toEqual({
       ok: true,
-      value: { saved: false }
+      value: { status: 'cancelled' }
     })
     expect(record.record).toHaveBeenCalledWith(expect.objectContaining({ method: 'files.saveAs' }))
     await expect(save(createServices(vi.fn()))).resolves.toMatchObject({

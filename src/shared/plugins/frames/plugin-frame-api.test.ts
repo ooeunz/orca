@@ -310,15 +310,15 @@ describe('window.orca user-gesture methods', () => {
 describe('window.orca saveAs and locale', () => {
   afterEach(() => setUserActivation(null))
 
-  it('resolves a save with nothing and rejects a cancelled one with cancelled', async () => {
+  it('resolves a save and a cancelled dialog alike, with their status', async () => {
     const { orca, fromHost } = mountGuestShell()
     setUserActivation(true)
     const saved = orca.files!.saveAs({ data: 'a' })
     const cancelled = orca.files!.saveAs({ data: 'b' })
-    fromHost({ orca: 1, kind: 'res', id: 0, result: { saved: true } })
-    fromHost({ orca: 1, kind: 'res', id: 1, result: { saved: false } })
-    await expect(saved).resolves.toBeUndefined()
-    await expect(cancelled).rejects.toMatchObject({ code: 'cancelled' })
+    fromHost({ orca: 1, kind: 'res', id: 0, result: { status: 'saved' } })
+    fromHost({ orca: 1, kind: 'res', id: 1, result: { status: 'cancelled' } })
+    await expect(saved).resolves.toEqual({ status: 'saved' })
+    await expect(cancelled).resolves.toEqual({ status: 'cancelled' })
   })
 
   it("follows Orca's UI locale from hello, falling back to navigator.language", () => {

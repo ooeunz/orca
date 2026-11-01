@@ -16,6 +16,7 @@ import {
   type PluginFrameSurface
 } from '../../../shared/plugins/frames/plugin-panel-shell'
 import type { ValidDiscoveredPlugin } from '../plugin-discovery'
+import type { PluginHostCaller } from '../plugin-service-host-call'
 import { getPluginHostMethodSpec } from '../../../shared/plugins/workers/plugin-host-api'
 import type { PluginContentVerifier } from '../plugin-content-integrity'
 import {
@@ -31,7 +32,8 @@ type PluginPanelControllerOptions = {
     pluginKey: string,
     method: string,
     params: unknown,
-    surface: PluginSurface
+    surface: PluginSurface,
+    caller?: PluginHostCaller
   ) => Promise<PluginHostCallOutcome>
   log: (pluginKey: string) => (line: string) => void
   panelAdmission?: PluginPanelCallAdmission
@@ -83,11 +85,14 @@ export class PluginPanelController {
     this.sessions.revoke(ownerKey, sessionToken)
   }
 
-  /** `desktop`: the call came from this machine's own window over IPC, never from a paired client. */
+  /**
+   * `desktop`: the call came from this machine's own window over IPC, never from a paired client;
+   * `callerWebContentsId` is that window, so its dialogs and budgets bind there.
+   */
   async execute(
     ownerKey: string,
     call: unknown,
-    origin: { desktop?: boolean } = {}
+    origin: { desktop?: boolean; callerWebContentsId?: number } = {}
   ): Promise<PluginHostCallOutcome> {
     const sessionToken = this.extractSessionToken(call)
     if (!sessionToken) {
@@ -130,7 +135,8 @@ export class PluginPanelController {
       binding.pluginKey,
       parsed.data.action,
       parsed.data.params,
-      binding.surface
+      binding.surface,
+      origin.desktop ? { webContentsId: origin.callerWebContentsId } : undefined
     )
   }
 

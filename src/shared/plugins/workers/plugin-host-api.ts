@@ -128,8 +128,8 @@ const filesSaveAsParams = z.strictObject({
   mimeType: z.string().min(1).max(255).optional(),
   data: saveAsDataSchema
 })
-/** The chosen path never reaches the plugin; `saved` is false when the person cancelled. */
-const filesSaveAsResult = z.object({ saved: z.boolean() })
+/** The chosen path never reaches the plugin; a cancelled dialog is a result, not an error. */
+const filesSaveAsResult = z.object({ status: z.enum(['saved', 'cancelled']) })
 
 export function isPluginExternalUrl(url: string): boolean {
   try {

@@ -1,4 +1,4 @@
-import { app, dialog, shell, type BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog, shell, webContents } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { normalizeBrowserDownloadFilename } from '../../../shared/browser-download-filename'
@@ -6,17 +6,19 @@ import { isPluginExternalUrl } from '../../../shared/plugins/workers/plugin-host
 import { createPanelMessageBudget } from '../../../shared/plugins/frames/plugin-panel-message-budget'
 import type { PanelMessageBudget } from '../../../shared/plugins/frames/plugin-panel-message-budget'
 import type { PluginDesktopFrameServices } from '../workers/plugin-host-method-bindings'
+import { PluginHostCallError, type PluginHostCallScope } from '../workers/plugin-host-call-scope'
+import { markPluginSavedFileAsDownloaded } from './plugin-save-as-download-mark'
 import { translateMain } from '../../i18n/main-i18n'
 import { blockedPluginSaveAsExtension } from '../../../shared/plugins/frames/plugin-save-as-extensions'
 
-/** Backstop behind the frame host's per-gesture check: a few dialogs or tabs per plugin at most. */
+/** Backstop behind the frame host's one-call-per-gesture check: a few dialogs or tabs at most. */
 const DESKTOP_FRAME_RATE_LIMIT = {
   maxMessages: 3,
   perMs: 10_000,
   maxBytes: Number.MAX_SAFE_INTEGER
 }
 
-// Every main window that hosts plugin frames; a call belongs to the one the person just used.
+// Every main window that hosts plugin frames; a call is honoured only from one of them.
 const hostWindows = new Set<BrowserWindow>()
 const budgets = new Map<string, PanelMessageBudget>()
 let services: PluginDesktopFrameServices | null = null
@@ -26,21 +28,33 @@ export function getPluginDesktopFrameServices(): PluginDesktopFrameServices | nu
   return services
 }
 
-/** The window the call came from: the gesture just happened there, so it is the focused one. */
-function callingWindow(): BrowserWindow | null {
-  const live = [...hostWindows].filter((window) => !window.isDestroyed())
-  return live.find((window) => window.isFocused()) ?? live.at(-1) ?? null
+/** The host window whose frame made the call; never a guess from focus. */
+function callingWindow(scope: PluginHostCallScope): BrowserWindow {
+  const sender =
+    scope.callerWebContentsId === undefined
+      ? undefined
+      : webContents.fromId(scope.callerWebContentsId)
+  const window = sender && !sender.isDestroyed() ? BrowserWindow.fromWebContents(sender) : null
+  if (!window || window.isDestroyed() || !hostWindows.has(window)) {
+    throw new PluginHostCallError('unavailable', 'the window that made this call is gone')
+  }
+  return window
 }
 
-function admit(window: BrowserWindow | null, pluginId: string): void {
-  const key = `${window?.id ?? 'none'}\0${pluginId}`
+function admit(window: BrowserWindow, pluginId: string): void {
+  const key = `${window.id}\0${pluginId}`
   let budget = budgets.get(key)
   if (!budget) {
     budget = createPanelMessageBudget(DESKTOP_FRAME_RATE_LIMIT)
     budgets.set(key, budget)
   }
-  if (budget.admit(Date.now(), 0)) {
-    throw new Error('too many requests; try again shortly')
+  const now = Date.now()
+  if (budget.admit(now, 0)) {
+    throw new PluginHostCallError(
+      'rate_limited',
+      'too many requests; try again shortly',
+      budget.retryAfterMs?.(now)
+    )
   }
 }
 
@@ -58,17 +72,18 @@ export function installPluginDesktopFrameServices(window: BrowserWindow): void {
     return
   }
   services = {
-    async openExternal(pluginId, url) {
+    async openExternal(pluginId, url, scope) {
       // Re-checked here: the shared schema already refused other schemes, but this is the sink.
       if (!isPluginExternalUrl(url)) {
         throw new Error('url must be an http:, https: or mailto: URL')
       }
-      admit(callingWindow(), pluginId)
+      admit(callingWindow(scope), pluginId)
+      scope.assertActive()
       await shell.openExternal(url)
       return true
     },
-    async saveFile(pluginId, input) {
-      const parent = callingWindow()
+    async saveFile(pluginId, input, scope) {
+      const parent = callingWindow(scope)
       admit(parent, pluginId)
       refuseBlockedExtension(input.suggestedName ?? '')
       const name = normalizeBrowserDownloadFilename(
@@ -80,17 +95,17 @@ export function installPluginDesktopFrameServices(window: BrowserWindow): void {
         defaultPath: join(app.getPath('downloads'), name),
         filters: saveDialogFilters(name)
       }
-      const result =
-        parent && !parent.isDestroyed()
-          ? await dialog.showSaveDialog(parent, options)
-          : await dialog.showSaveDialog(options)
+      const result = await dialog.showSaveDialog(parent, options)
       if (result.canceled || !result.filePath) {
         return false
       }
       // Re-checked: the person may type a name, but plugin data still never becomes a program.
       refuseBlockedExtension(result.filePath)
+      // The dialog may have stayed open while the plugin was disabled or removed.
+      scope.assertActive()
       const { data } = input
       await writeFile(result.filePath, data instanceof ArrayBuffer ? new Uint8Array(data) : data)
+      await markPluginSavedFileAsDownloaded(result.filePath)
       return true
     }
   }

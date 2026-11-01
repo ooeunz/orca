@@ -85,11 +85,15 @@ and work only in the desktop app (in browser clients `orca.shell` and `orca.file
 
 ```js
 button.onclick = () => orca.shell.openExternal('https://example.com/docs') // http:, https:, mailto:
-await orca.files.saveAs({ suggestedName: 'chart.png', mimeType: 'image/png', data: arrayBuffer })
-// Resolves with nothing once saved; rejects with code 'cancelled' if the person cancels.
-// The plugin never learns the path. Any mimeType is accepted; the dialog filters by the
-// suggested name's extension. Executable and shortcut types (.exe, .js, .sh, .app, .lnk…)
-// are refused.
+const { status } = await orca.files.saveAs({
+  suggestedName: 'chart.png',
+  mimeType: 'image/png',
+  data: arrayBuffer
+})
+// status is 'saved' or 'cancelled' (the person closed the dialog). The plugin never learns the
+// path, and the file is marked as downloaded so the OS warns before opening it. Any mimeType is
+// accepted; the dialog filters by the suggested name's extension. Executable, script, installer,
+// shortcut and disk-image types (.exe, .js, .sh, .app, .lnk, .iso…) are refused.
 ```
 
 `orca.locale` is Orca's UI language as a BCP-47 tag (`navigator.language` follows the

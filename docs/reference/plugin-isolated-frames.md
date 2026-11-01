@@ -95,10 +95,15 @@ never opens on another machine.
 
 - `orca.shell.openExternal(url)`: `http:`/`https:`/`mailto:` only, opened in the OS browser.
 - `orca.files.saveAs({ suggestedName, mimeType, data })`: Orca shows its save dialog; the plugin never sees
-  the chosen path. `data` is a string or `ArrayBuffer`, capped at 64 MiB. Resolves with `undefined` once
-  saved and rejects with `code: 'cancelled'` when the person cancels. Any `mimeType` is accepted; the dialog
-  filter comes from the suggested name's extension. Executable and shortcut types are refused, whether
-  suggested or typed (`plugin-save-as-extensions.ts`: `.exe .bat .cmd .com .scr .pif .hta .js .jse .vbs .vbe
-  .wsf .wsh .ps1 .msi .msp .lnk .url .reg .cpl .jar .app .command .terminal .fileloc .webloc .pkg .dmg .sh
-  .desktop`).
+  the chosen path. `data` is a string or `ArrayBuffer`, capped at 64 MiB. Resolves with
+  `{ status: 'saved' }`, or `{ status: 'cancelled' }` when the person cancels. Any `mimeType` is accepted;
+  the dialog filter comes from the suggested name's extension. Executable, script, installer, shortcut and
+  disk-image types are refused, whether suggested or typed (`plugin-save-as-extensions.ts`, Chromium's
+  dangerous download types plus `.iso .img .vhd .vhdx`, which shed the download mark when mounted). The
+  written file is marked as downloaded: a `Zone.Identifier` stream with `ZoneId=3` on Windows,
+  `com.apple.quarantine` on macOS; Linux has no such mark.
+- Revocation reaches the side effect: each call re-checks that its plugin is still installed, enabled,
+  consented and not kill-listed right before it writes, opens a tab or sends terminal input, so a save
+  dialog left open while the plugin is disabled or uninstalled writes nothing. Dialogs and rate budgets bind
+  to the window whose frame made the call (its WebContents travels with the IPC call).
 - `orca.locale`: Orca's UI locale from `hello` (guests' `navigator.language` follows the OS).

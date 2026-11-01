@@ -228,7 +228,7 @@ function frameApiScript(surface: PluginFrameSurface, transport: FrameTransport):
         if (o.suggestedName !== undefined) params.suggestedName = o.suggestedName
         if (o.mimeType !== undefined) params.mimeType = o.mimeType
         return userCall(C.user.saveAs, params).then(function (result) {
-          if (!result || !result.saved) throw failure({ code: 'cancelled', message: 'save cancelled' })
+          return { status: result && result.status === 'saved' ? 'saved' : 'cancelled' }
         })
       }
     })

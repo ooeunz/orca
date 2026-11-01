@@ -176,7 +176,8 @@ export function registerPluginHandlers(
     async (event, args: unknown): Promise<PluginHostCallOutcome> => {
       await pluginService.whenReady()
       return pluginService.panels.execute(rendererPanelOwner(event.sender.id), args, {
-        desktop: true
+        desktop: true,
+        callerWebContentsId: event.sender.id
       })
     }
   )
