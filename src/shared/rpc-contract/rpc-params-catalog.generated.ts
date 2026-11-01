@@ -502,6 +502,7 @@ import {
   PluginGetLogsParams,
   PluginInvokeCommandParams,
   PluginReadPanelEntryParams,
+  PluginRestartParams,
   PluginRpcConsentParams,
   PluginSetEnabledParams,
   PluginsPanelActionParams
@@ -1313,6 +1314,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'plugins.panelAction': PluginsPanelActionParams,
   'plugins.readPanelEntry': PluginReadPanelEntryParams,
   'plugins.refresh': null,
+  'plugins.restart': PluginRestartParams,
   'plugins.setEnabled': PluginSetEnabledParams,
   'preflight.check': PreflightCheck,
   'preflight.detectAgents': PreflightProjectAgentDetection,

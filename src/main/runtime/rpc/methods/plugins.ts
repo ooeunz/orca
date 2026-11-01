@@ -11,6 +11,7 @@ import {
   PluginGetLogsParams,
   PluginInvokeCommandParams,
   PluginReadPanelEntryParams,
+  PluginRestartParams,
   PluginRpcConsentParams,
   PluginSetEnabledParams,
   PluginsPanelActionParams
@@ -222,6 +223,25 @@ export const PLUGIN_METHODS = [
       await service.whenReady()
       await service.refresh()
       return listForRpc()
+    }
+  }),
+  defineMethod({
+    name: 'plugins.restart',
+    permission: 'host-admin',
+    params: PluginRestartParams,
+    handler: async (params) => {
+      const service = requirePluginService()
+      await service.whenReady()
+      const plugin = service.findValidPlugin(params.pluginKey)
+      if (!plugin) {
+        throw new Error(`plugin ${params.pluginKey} is not installed or loaded`)
+      }
+      if (!plugin.manifest.main) {
+        throw new Error(`plugin ${params.pluginKey} has no worker to restart`)
+      }
+      // Why stop only: workers start on their next command or event, so that run loads fresh code.
+      await service.deactivatePlugin(params.pluginKey)
+      return { pluginKey: params.pluginKey, plugin: await listEntryForRpc(params.pluginKey) }
     }
   }),
   defineMethod({

@@ -144,3 +144,46 @@ describe('plugins.devInspect', () => {
     ).rejects.toThrow(/desktop app/)
   })
 })
+
+describe('plugins.restart', () => {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: plugin handlers never touch the runtime.
+  const context: RpcContext = {
+    runtime: {} as RpcContext['runtime'],
+    caller: { kind: 'local-cli' }
+  }
+
+  function setup(manifest: { main?: string }) {
+    const deactivatePlugin = vi.fn().mockResolvedValue(undefined)
+    const stub = {
+      whenReady: vi.fn().mockResolvedValue(undefined),
+      findValidPlugin: (key: string) =>
+        key === 'acme.notes' ? { pluginKey: key, manifest } : null,
+      deactivatePlugin
+    }
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: restart reads only the members stubbed above.
+    setPluginServiceForRpc(stub as unknown as PluginService, {
+      applyConsent: vi.fn(),
+      applyEnablement: vi.fn()
+    })
+    return deactivatePlugin
+  }
+
+  it('stops the worker without touching enablement or approval', async () => {
+    const deactivatePlugin = setup({ main: 'main.mjs' })
+    await expect(
+      method('plugins.restart').handler({ pluginKey: 'acme.notes' }, context)
+    ).resolves.toEqual({ pluginKey: 'acme.notes', plugin: null })
+    expect(deactivatePlugin).toHaveBeenCalledWith('acme.notes')
+  })
+
+  it('refuses unknown plugins and plugins without a worker', async () => {
+    const deactivatePlugin = setup({})
+    await expect(
+      method('plugins.restart').handler({ pluginKey: 'acme.notes' }, context)
+    ).rejects.toThrow(/no worker/)
+    await expect(
+      method('plugins.restart').handler({ pluginKey: 'acme.other' }, context)
+    ).rejects.toThrow(/not installed/)
+    expect(deactivatePlugin).not.toHaveBeenCalled()
+  })
+})
