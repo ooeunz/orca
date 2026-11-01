@@ -5,6 +5,7 @@ import type { PluginHostListEntry } from '../../../../shared/plugins/plugin-list
 import type { PluginService } from '../../../plugins/plugin-service'
 import type { PluginConsentRequest } from '../../../../shared/plugins/approval/plugin-consent-request'
 import {
+  PluginDevInspectParams,
   PluginDevLoadParams,
   PluginDevUnloadParams,
   PluginGetLogsParams,
@@ -30,6 +31,8 @@ let pluginServiceForRpc: PluginService | null = null
 let pluginConsentForRpc: ((request: PluginConsentRequest) => Promise<void>) | null = null
 let pluginEnablementForRpc: ((pluginKey: string, enabled: boolean) => Promise<void>) | null = null
 let pluginDevPathsForRpc: ((paths: string[]) => void) | null = null
+// Desktop only: headless hosts have no guest webContents to inspect.
+let pluginFrameDevToolsForRpc: ((pluginKey: string) => number) | null = null
 
 export function setPluginServiceForRpc(
   service: PluginService | null,
@@ -37,12 +40,14 @@ export function setPluginServiceForRpc(
     applyConsent: (request: PluginConsentRequest) => Promise<void>
     applyEnablement: (pluginKey: string, enabled: boolean) => Promise<void>
     setDevPluginPaths?: (paths: string[]) => void
+    openFrameDevTools?: (pluginKey: string) => number
   }
 ): void {
   pluginServiceForRpc = service
   pluginConsentForRpc = writes?.applyConsent ?? null
   pluginEnablementForRpc = writes?.applyEnablement ?? null
   pluginDevPathsForRpc = writes?.setDevPluginPaths ?? null
+  pluginFrameDevToolsForRpc = writes?.openFrameDevTools ?? null
 }
 
 function requirePluginService(): PluginService {
@@ -193,6 +198,19 @@ export const PLUGIN_METHODS = [
             ? { pluginKey: params.pluginKey }
             : { path: params.path ?? '' }
       })
+    }
+  }),
+  defineMethod({
+    name: 'plugins.devInspect',
+    permission: 'host-admin',
+    params: PluginDevInspectParams,
+    handler: async (params) => {
+      const service = requirePluginService()
+      await service.whenReady()
+      if (!pluginFrameDevToolsForRpc) {
+        throw new Error('Plugin frame DevTools are only available in the Orca desktop app')
+      }
+      return { pluginKey: params.pluginKey, opened: pluginFrameDevToolsForRpc(params.pluginKey) }
     }
   }),
   defineMethod({

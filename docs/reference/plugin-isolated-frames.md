@@ -85,6 +85,10 @@ Every plugin frame on desktop is an Electron `<webview>`:
   from `stat`), up to 32 MiB a file; a session holds at most 32 requests at once (`503` past that).
   Documents, scripts, styles, JSON, SVG and WASM are read whole (16 MiB cap). A declared HTML entry is a
   document whatever its extension. Path segments ending in a dot or space are refused.
+- **Diagnostics**: each guest's `console-message` errors and warnings (uncaught exceptions included) go to
+  its plugin's log buffer with URLs reduced to plugin-relative paths, capped at 20 lines per plugin per
+  10 s and 2000 characters a line (`plugin-frame-guest-diagnostics.ts`). `plugins.devInspect` (CLI
+  `orca plugin dev inspect`) opens detached DevTools for live guests; headless hosts refuse it.
 - **Integrity**: a navigation re-hashes the plugin tree, at most every 2 s per tree; any other request
   (including `fetch` of an `.html` file) reuses a check from the last 10 s. The hash records each file's
   digest, and documents, scripts, styles, JSON, SVG and WASM are served only if their bytes still match

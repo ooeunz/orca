@@ -114,3 +114,33 @@ describe('plugin approval over RPC', () => {
     )
   })
 })
+
+describe('plugins.devInspect', () => {
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: devInspect reads only whenReady.
+  const service = { whenReady: vi.fn().mockResolvedValue(undefined) } as unknown as PluginService
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: plugin handlers never touch the runtime.
+  const context: RpcContext = {
+    runtime: {} as RpcContext['runtime'],
+    caller: { kind: 'local-cli' }
+  }
+
+  it('opens DevTools through the desktop hook and reports the count', async () => {
+    const openFrameDevTools = vi.fn().mockReturnValue(2)
+    setPluginServiceForRpc(service, {
+      applyConsent: vi.fn(),
+      applyEnablement: vi.fn(),
+      openFrameDevTools
+    })
+    await expect(
+      method('plugins.devInspect').handler({ pluginKey: 'acme.notes' }, context)
+    ).resolves.toEqual({ pluginKey: 'acme.notes', opened: 2 })
+    expect(openFrameDevTools).toHaveBeenCalledWith('acme.notes')
+  })
+
+  it('fails on a host without guest frames', async () => {
+    setPluginServiceForRpc(service, { applyConsent: vi.fn(), applyEnablement: vi.fn() })
+    await expect(
+      method('plugins.devInspect').handler({ pluginKey: 'acme.notes' }, context)
+    ).rejects.toThrow(/desktop app/)
+  })
+})

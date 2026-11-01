@@ -196,6 +196,13 @@ moving to a higher execution profile does. Shortcuts and recipes are tied to the
 each change to them is reviewed again. Use **Restart** on the plugin row after changing a
 worker, and the plugin's logs to see what it printed.
 
+In the desktop app, a panel's or custom editor's `console.error` and `console.warn`, uncaught
+exceptions and unhandled rejections (and a declarative panel's render or mount errors) also land
+in `orca plugin logs`, as `[frame] <file>:<line> <message>` with the path relative to the plugin
+folder and stack traces shortened the same way. At most 20 such lines per plugin every 10 s are
+kept; past that one notice is logged and the rest are dropped. `orca plugin dev inspect
+<publisher.id>` opens DevTools for each of the plugin's open frames.
+
 ## 3. Validate
 
 ```sh
@@ -209,10 +216,17 @@ scaffolds a plugin that passes these checks, and `orca plugin inspect <dir>` sho
 allowed to do and its content hash.
 
 This runs the manifest checks Orca runs, strictly: unknown keys, limits, contributions beyond the
-execution profile, and an `engines.orca` too low for the fields used. On a catalog it also
+execution profile, an `engines.orca` too low for the fields used, and that every file the
+manifest names (icon, panel and editor entries, themes, syntaxes, translations, templates)
+exists inside the plugin and fits its size limit. On a catalog it also
 checks that listed images exist and fit. It warns when the manifest still declares the deprecated
 `publisher`, and, in a Git repository, when that value is not the owner of the `origin` remote.
 Warnings do not fail the check. Run it in CI for the plugin and catalog repositories.
+
+The two report failure with different exit codes. `pnpm validate:plugin` exits `0` when every
+file is valid, `1` when any is invalid or missing, and `2` when no path is given.
+`orca plugin` commands exit `0` ok, `1` error (such as a missing path), `2` the plugin is
+invalid (`plugin_invalid`), and `3` approval is needed.
 
 ## 4. List it in the Orca plugin directory
 
@@ -230,10 +244,13 @@ each release to an exact commit and file hash, so Orca refuses bytes the catalog
 for. Plugins in Orca's official and community catalogs must follow the
 [plugin listing policy](plugin-listing-policy.md), starting with being free to install and use.
 
-1. Commit the plugin and run `pnpm validate:plugin` on its directory. It prints the
+1. Commit the plugin and run `orca plugin release-entry .` in its directory (or
+   `pnpm validate:plugin path/to/plugin` from an Orca checkout). It prints the
    release entry for `HEAD`: version, full commit SHA, `contentHash`, execution profile, minimum
-   Orca, contribution summary, capabilities and file types. Every field must match
-   what Orca finds at install, so paste it rather than writing it by hand.
+   Orca, contribution summary, capabilities and file types, plus the `source.path` when the plugin
+   is a subdirectory of its repository. Every field must match
+   what Orca finds at install, so paste it rather than writing it by hand. Uncommitted changes are
+   not part of the entry.
 2. Add or update the plugin's entry in the catalog's `orca-catalog.json`, newest release first:
 
    ```json
@@ -325,8 +342,8 @@ Experimental; these may still change without a new format:
   and workers may be stopped at any time;
 - language-pack keys, which change when Orca's source moves or its English copy changes; packs
   get best-effort coverage per release;
-- `pnpm validate:plugin` output; only its exit codes (`0` valid, `1` invalid, `2` usage) are
-  stable;
+- `pnpm validate:plugin` output; only its exit codes (`0` valid, `1` invalid, `2` usage, see
+  [Validate](#3-validate)) are stable;
 - `settings:own`, which stores untyped values until plugins can declare settings;
 - manifest format 1, which is deprecated. Catalogs need format 2.
 

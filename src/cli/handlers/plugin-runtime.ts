@@ -200,6 +200,20 @@ export const PLUGIN_RUNTIME_HANDLERS: Record<string, CommandHandler> = {
     const plugins = await callPlugins<PluginHostListEntry[]>(ctx, 'plugins.refresh')
     printPluginResult(ctx, { plugins }, `Reloaded ${plugins.length} plugin(s).`)
   },
+  'plugin dev inspect': async (ctx) => {
+    const result = await callPlugins<{ pluginKey: string; opened: number }>(
+      ctx,
+      'plugins.devInspect',
+      { pluginKey: requirePluginKey(ctx) }
+    )
+    printPluginResult(
+      ctx,
+      result,
+      result.opened === 0
+        ? `${result.pluginKey} has no open panel or editor; open one in Orca, then run this again.`
+        : `Opened DevTools for ${result.opened} ${result.pluginKey} frame(s).`
+    )
+  },
   'plugin dev unload': async (ctx) => {
     const target = requirePluginPathArg(ctx, 'target')
     // Why the folder check first: a folder may be named like a plugin key.

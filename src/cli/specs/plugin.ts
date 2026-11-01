@@ -52,6 +52,20 @@ export const PLUGIN_AUTHORING_COMMAND_SPECS: CommandSpec[] = [
       EXIT_CODES_NOTE
     ],
     examples: ['orca plugin inspect ./notes-editor --json']
+  },
+  {
+    path: ['plugin', 'release-entry'],
+    summary: "Print the catalog release entry for a plugin folder's committed HEAD",
+    usage: 'orca plugin release-entry <dir> [--json]',
+    allowedFlags: [...LOCAL_COMMAND_FLAGS, 'path'],
+    positionalArgs: ['path'],
+    notes: [
+      'Validates like `orca plugin validate`, then hashes the files of HEAD (not the working tree) the way install does, and prints the `releases` entry to paste into orca-catalog.json, plus the `source.path` when the plugin is a subdirectory of its repository.',
+      'Offline; runs only local read-only Git and never runs plugin code. Uncommitted changes are left out, with a note.',
+      'Fails with plugin_invalid when the folder is invalid, and with invalid_argument when it is not committed in a Git repository or HEAD has no installable release.',
+      EXIT_CODES_NOTE
+    ],
+    examples: ['orca plugin release-entry .', 'orca plugin release-entry ./gleam-syntax --json']
   }
 ]
 
@@ -127,6 +141,18 @@ export const PLUGIN_RUNTIME_COMMAND_SPECS: CommandSpec[] = [
       EXIT_CODES_NOTE
     ],
     examples: ['orca plugin dev reload', 'orca plugin dev reload ./notes-editor --json']
+  },
+  {
+    path: ['plugin', 'dev', 'inspect'],
+    summary: "Open DevTools for a plugin's open panels and editors",
+    usage: 'orca plugin dev inspect <plugin-key> [--json]',
+    allowedFlags: [...GLOBAL_FLAGS, 'plugin'],
+    positionalArgs: ['plugin'],
+    notes: [
+      'Desktop app only: opens one detached DevTools window per open frame. Console errors and uncaught exceptions also reach `orca plugin logs` without it.',
+      EXIT_CODES_NOTE
+    ],
+    examples: ['orca plugin dev inspect acme.notes']
   },
   {
     path: ['plugin', 'dev', 'unload'],

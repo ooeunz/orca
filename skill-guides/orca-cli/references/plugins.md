@@ -8,6 +8,7 @@ syntaxes, language packs, custom editors, panels). All commands take `--json`; b
 ORCA plugin create <dir> --template <theme|terminal-theme|icon-theme|syntax|language-pack|editor|panel> --publisher <owner> [--id <id>] [--name <name>] --json
 ORCA plugin validate <dir|orca-plugin.json|orca-catalog.json> --json
 ORCA plugin inspect <dir> --json
+ORCA plugin release-entry <dir> --json
 ORCA plugin dev load <dir> [--approve <fingerprint>] --json
 ORCA plugin dev reload [<dir>] [--approve <fingerprint>] --json
 ORCA plugin dev unload <dir|plugin-key> --json
@@ -28,7 +29,10 @@ Exit codes: `0` ok, `1` error, `2` `plugin_invalid`, `3` `approval_required` or 
 3. `plugin validate` until it passes. It is offline and never runs plugin code.
 4. `plugin dev load <dir>` adds the folder to Settings → Plugins → Development folders on the
    Orca host and loads it. Orca reloads it when its files change; run `plugin dev reload <dir>`
-   if a change was missed. `plugin logs` shows what a panel or worker printed.
+   if a change was missed. `plugin logs` shows what a worker printed and a panel's or editor's
+   console errors, warnings and uncaught exceptions as `[frame] <file>:<line> <message>`.
+   `plugin dev inspect <plugin-key>` opens DevTools windows for its open frames; run it only
+   when the user asks.
 5. `plugin dev unload <dir>` when done.
 
 Paths are on the machine that runs Orca. With `--environment <server>`, pass an absolute path
@@ -68,6 +72,10 @@ There is no publish command. Use Git and `gh` with the user's own credentials:
    tag: `git tag -a v1.2.0 -m v1.2.0 && git push origin v1.2.0`.
 3. Add the `orca-plugin` topic to the repository: `gh repo edit <owner>/<repo> --add-topic orca-plugin`.
 4. Check the listing status at `https://www.onorca.dev/plugins/<owner>/<repo>`.
+
+For a catalog (`orca-catalog.json`), commit the plugin and run `plugin release-entry <dir>`: it
+prints the `releases` entry for `HEAD` (and the `source.path` for a plugin in a subdirectory) to
+paste into the catalog, newest first.
 
 Publishing is public and acts under the user's GitHub identity; do it only when the user asked
 to publish.
