@@ -61,6 +61,30 @@ function mountShell(surface: PluginFrameSurface = 'panel') {
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe('window.orca', () => {
+  it('times out a call the host never answers, and bounds calls in flight', async () => {
+    vi.useFakeTimers()
+    try {
+      const { orca, posted } = mountShell()
+      const lost = orca.host.call('workspace.readContext', {})
+      const outcome = lost.then(
+        () => 'resolved',
+        (error: { code?: string }) => error.code
+      )
+      await vi.advanceTimersByTimeAsync(120_000)
+      await expect(outcome).resolves.toBe('timeout')
+      expect(posted().at(-1)).toMatchObject({ kind: 'cancel' })
+      const flood = Array.from({ length: 256 }, () =>
+        orca.host.call('workspace.readContext', {}).catch(() => undefined)
+      )
+      await expect(orca.host.call('workspace.readContext', {})).rejects.toMatchObject({
+        code: 'rate_limited'
+      })
+      void flood
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('is frozen, announces ready with the protocol, and knows api and methods up front', () => {
     const { orca, posted } = mountShell()
     expect(Object.isFrozen(orca)).toBe(true)

@@ -2,6 +2,7 @@
  *  plugin-frame-guest.ts. */
 export const PRELOAD_PLUGIN_FRAME_IPC_CHANNEL = 'orca-plugin-frame'
 export const PRELOAD_PLUGIN_FRAME_TRANSPORT_GLOBAL = '__orcaPluginFrameTransport'
+export const PRELOAD_PLUGIN_FRAME_KEY_CHANNEL = 'orca-plugin-frame-key'
 
 /**
  * Runs serialized in the guest's main world, so it must not reference anything outside its body.

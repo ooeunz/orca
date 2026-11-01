@@ -26,6 +26,10 @@ export type PluginFrameMessageContext = {
   userActivation: boolean
   /** Defaults to `iframe`: user-gesture host methods run only for guests. */
   transport?: PluginFrameTransport
+  /** Guests: the serial of the real input that activated the frame (0 for none). */
+  gesture?: number
+  /** Guests: a modifier chord the preload saw as trusted input, never page script. */
+  trustedChord?: boolean
 }
 
 /** Where host replies go: an iframe's window, or a guest webview through its IPC channel. */
@@ -74,13 +78,25 @@ export function pluginFrameHello(
 
 /**
  * Whether a user-gesture method may run. A srcdoc iframe shares the host window, whose activation
- * any keystroke in Orca sets, so only a guest's isolated-world stamp counts.
+ * any keystroke in Orca sets, so only a guest's isolated-world gesture serial counts, and each
+ * serial admits one call: activation lasts seconds, a gesture is one click or key press.
  */
-export function admitsUserMethod(method: string, context: PluginFrameMessageContext): boolean {
-  if (getPluginHostMethodSpec(method)?.userActivation !== true) {
+export function createPluginFrameGestureGate(): (
+  method: string,
+  context: PluginFrameMessageContext
+) => boolean {
+  let consumed = 0
+  return (method, context) => {
+    if (getPluginHostMethodSpec(method)?.userActivation !== true) {
+      return true
+    }
+    const gesture = context.gesture ?? 0
+    if (context.transport !== 'guest' || gesture <= consumed) {
+      return false
+    }
+    consumed = gesture
     return true
   }
-  return context.transport === 'guest' && context.userActivation
 }
 
 const SAVE_AS_LIMITS = { maxBytes: PLUGIN_SAVE_AS_MAX_BYTES + 4096, maxMessages: 5, perMs: 10_000 }

@@ -374,28 +374,46 @@ describe('createPluginFrameEnvelopeHandler (guest transport)', () => {
     )
   })
 
-  it('refuses user-gesture methods without activation, whatever the frame claims', async () => {
+  it('admits one user-gesture call per real gesture, whatever the frame claims', async () => {
     const { handle, callHostMethod, replies } = guest()
-    handle(req(1, 'shell.openExternal', { url: 'https://example.com' }), { userActivation: false })
+    const open = (id: number) => req(id, 'shell.openExternal', { url: 'https://example.com' })
+    handle(open(1), { userActivation: false, transport: 'guest', gesture: 0 })
     await flush()
     expect(callHostMethod).not.toHaveBeenCalled()
     expect(replies()).toEqual([
       expect.objectContaining({ id: 1, error: expect.objectContaining({ code: 'not_permitted' }) })
     ])
-    handle(req(2, 'shell.openExternal', { url: 'https://example.com' }), {
-      userActivation: true,
-      transport: 'guest'
-    })
+    handle(open(2), { userActivation: true, transport: 'guest', gesture: 4 })
+    // The same click (or an older one) cannot open a second tab.
+    handle(open(3), { userActivation: true, transport: 'guest', gesture: 4 })
+    handle(open(4), { userActivation: true, transport: 'guest', gesture: 3 })
     await flush()
-    expect(callHostMethod).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'shell.openExternal' })
-    )
+    expect(callHostMethod).toHaveBeenCalledTimes(1)
+    handle(open(5), { userActivation: true, transport: 'guest', gesture: 5 })
+    await flush()
+    expect(callHostMethod).toHaveBeenCalledTimes(2)
+  })
+
+  it('drops page-posted editor chords from guests but passes trusted preload chords', () => {
+    const onEvent = vi.fn()
+    const { handle } = guest({
+      editor: { claim: () => false, onReady: vi.fn(), onEvent, onResponse: vi.fn() }
+    })
+    const chord = { orca: 1, kind: 'evt', event: 'editor.keydown', payload: { key: 's' } }
+    handle(chord, { userActivation: true, transport: 'guest', gesture: 9 })
+    expect(onEvent).not.toHaveBeenCalled()
+    handle(chord, { userActivation: true, transport: 'guest', trustedChord: true })
+    expect(onEvent).toHaveBeenCalledTimes(1)
   })
 
   it('carries a save past the 64 KiB message budget on its own lane', async () => {
     const { handle, callHostMethod, replies } = guest()
     const data = new ArrayBuffer(1024 * 1024)
-    handle(req(1, 'files.saveAs', { data }), { userActivation: true, transport: 'guest' })
+    handle(req(1, 'files.saveAs', { data }), {
+      userActivation: true,
+      transport: 'guest',
+      gesture: 1
+    })
     await flush()
     expect(callHostMethod).toHaveBeenCalledWith(expect.objectContaining({ action: 'files.saveAs' }))
     handle(req(2, 'notifications.show', { title: 'x'.repeat(70 * 1024) }), {

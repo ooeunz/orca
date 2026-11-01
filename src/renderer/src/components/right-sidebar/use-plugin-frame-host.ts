@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { FRAME_EVENTS } from '../../../../shared/plugins/frames/plugin-frame-bridge'
-import { PLUGIN_FRAME_IPC_CHANNEL } from '../../../../shared/plugins/frames/plugin-frame-guest'
+import {
+  PLUGIN_FRAME_IPC_CHANNEL,
+  PLUGIN_FRAME_KEY_CHANNEL
+} from '../../../../shared/plugins/frames/plugin-frame-guest'
 import { pluginEvent } from '../../../../shared/plugins/frames/plugin-protocol'
 import {
   createPluginFrameEnvelopeHandler,
@@ -79,7 +82,21 @@ export function usePluginFrameHost(options: {
     const onMessage = (event: Event): void => {
       const message = readPluginGuestMessage(event, PLUGIN_FRAME_IPC_CHANNEL)
       if (message) {
-        handle(message.data, { userActivation: message.userActivation, transport: 'guest' })
+        handle(message.data, {
+          userActivation: message.gesture > 0,
+          transport: 'guest',
+          gesture: message.gesture
+        })
+        return
+      }
+      // Trusted modifier chords: the preload saw these as real key presses in this guest.
+      const chord = readPluginGuestMessage(event, PLUGIN_FRAME_KEY_CHANNEL)
+      if (chord) {
+        handle(pluginEvent(FRAME_EVENTS.editorKeydown, chord.data), {
+          userActivation: true,
+          transport: 'guest',
+          trustedChord: true
+        })
       }
     }
     const onReady = (): void => setLoadedFrameKey(frameKey)

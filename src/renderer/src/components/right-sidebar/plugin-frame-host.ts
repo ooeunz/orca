@@ -24,7 +24,7 @@ import {
 } from '../../../../shared/plugins/frames/plugin-panel-message-budget'
 import { translate } from '@/i18n/i18n'
 import {
-  admitsUserMethod,
+  createPluginFrameGestureGate,
   createPluginFrameLanes,
   pluginFrameHello,
   pluginFrameLaneFor,
@@ -123,6 +123,7 @@ export function createPluginFrameEnvelopeHandler(
   const callHostMethod = options.callHostMethod ?? callPanelActionViaPreload
   // Ids the frame cancelled while main was still running the call; their answers are dropped.
   const inFlight = new Set<number>()
+  const admitsGesture = createPluginFrameGestureGate()
   return (data: unknown, context: PluginFrameMessageContext): void => {
     const frameWindow = options.getFrameWindow()
     if (!frameWindow) {
@@ -201,7 +202,10 @@ export function createPluginFrameEnvelopeHandler(
           )
           options.editor?.onReady()
         } else {
-          options.editor?.onEvent(message, context)
+          // A guest's shell-posted chords are page-forgeable; only the preload's count there.
+          if (context.transport !== 'guest' || context.trustedChord === true) {
+            options.editor?.onEvent(message, context)
+          }
         }
         return
       case 'res':
@@ -228,7 +232,7 @@ export function createPluginFrameEnvelopeHandler(
     const sessionToken = options.getSessionToken()
     inFlight.add(request.id)
     // Why here: frame code can post raw envelopes, so the shell's own check is only a fast path.
-    if (!admitsUserMethod(request.method, context)) {
+    if (!admitsGesture(request.method, context)) {
       respond(
         pluginFailure(
           request.id,

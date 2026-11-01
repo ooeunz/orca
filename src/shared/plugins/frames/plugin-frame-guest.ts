@@ -11,6 +11,8 @@ export const PLUGIN_FRAME_SCHEME = 'orca-plugin-frame'
 export const PLUGIN_FRAME_PARTITION_PREFIX = 'persist:orca-plugin-'
 /** `sendToHost` / `webview.send` channel carrying the `{orca:1, …}` envelopes. */
 export const PLUGIN_FRAME_IPC_CHANNEL = 'orca-plugin-frame'
+/** Preload → host only: modifier chords from trusted keydowns, the one source of a guest save. */
+export const PLUGIN_FRAME_KEY_CHANNEL = 'orca-plugin-frame-key'
 /** One-shot main-world handoff from the guest preload to Orca's injected frame shell. */
 export const PLUGIN_FRAME_TRANSPORT_GLOBAL = '__orcaPluginFrameTransport'
 /** Paths under this prefix are reserved for files Orca ships; plugin files there are never served. */

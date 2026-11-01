@@ -79,6 +79,11 @@ function frameApiScript(surface: PluginFrameSurface, transport: FrameTransport):
     // Iframes get no user-gesture API at all: Orca cannot verify their gestures.
     user: transport === 'parent' ? null : PLUGIN_FRAME_USER_METHODS,
     tokensStyleId: PANEL_SHELL_TOKENS_STYLE_ID,
+    maxPending: 256,
+    deadlineMs: 120_000,
+    // A save dialog waits on the person, so gesture methods get a long deadline.
+    userDeadlineMs: 30 * 60_000,
+    userMethodList: Object.values(PLUGIN_FRAME_USER_METHODS),
     transportGlobal: transport === 'parent' ? null : PLUGIN_FRAME_TRANSPORT_GLOBAL
   }).replaceAll('<', '\\u003c')
   return `;(function (C) {
@@ -131,15 +136,26 @@ function frameApiScript(surface: PluginFrameSurface, transport: FrameTransport):
   function call(method, params, options) {
     var signal = options && options.signal
     if (signal && signal.aborted) return Promise.reject(failure({ code: 'cancelled', message: 'cancelled' }))
+    // Bounded and deadlined: a lost answer must never leave a call (or the map) growing forever.
+    if (pending.size >= C.maxPending) return Promise.reject(failure({ code: 'rate_limited', message: 'too many calls in flight', retryable: true }))
     var id = nextId++
+    var deadlineMs = C.userMethodList.indexOf(String(method)) >= 0 ? C.userDeadlineMs : C.deadlineMs
     return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        if (!pending.delete(id)) return
+        if (signal) signal.removeEventListener('abort', abort)
+        post({ kind: 'cancel', id: id })
+        reject(failure({ code: 'timeout', message: 'host did not answer', retryable: true }))
+      }, deadlineMs)
       function abort() {
+        clearTimeout(timer)
         pending.delete(id)
         post({ kind: 'cancel', id: id })
         reject(failure({ code: 'cancelled', message: 'cancelled' }))
       }
       if (signal) signal.addEventListener('abort', abort, { once: true })
       pending.set(id, function (message) {
+        clearTimeout(timer)
         if (signal) signal.removeEventListener('abort', abort)
         if (message.error) reject(failure(message.error))
         else resolve(message.result)

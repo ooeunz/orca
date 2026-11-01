@@ -27,7 +27,7 @@ export function pluginFrameWindowOf(element: PluginFrameElement | null): PluginF
 export function readPluginGuestMessage(
   event: Event,
   channel: string
-): { data: unknown; userActivation: boolean } | null {
+): { data: unknown; gesture: number } | null {
   if (!('channel' in event) || event.channel !== channel || !('args' in event)) {
     return null
   }
@@ -35,7 +35,15 @@ export function readPluginGuestMessage(
   if (!Array.isArray(args) || args.length === 0) {
     return null
   }
-  return { data: args[0], userActivation: args[1] === true }
+  // The preload's isolated-world stamp: `{ gesture }`, the serial of the input that activated it.
+  const stamp: unknown = args[1]
+  const gesture =
+    typeof stamp === 'object' && stamp !== null && 'gesture' in stamp ? stamp.gesture : 0
+  return {
+    data: args[0],
+    gesture:
+      typeof gesture === 'number' && Number.isSafeInteger(gesture) && gesture > 0 ? gesture : 0
+  }
 }
 
 /** Guests need Electron's `<webview>`; browser clients never receive a guest from main. */
