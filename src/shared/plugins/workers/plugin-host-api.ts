@@ -281,7 +281,7 @@ export const PLUGIN_HOST_API = {
   }),
   'shell.openExternal': spec({
     summary:
-      'Opens an http:, https: or mailto: URL in the default browser. Needs a click or key press in the frame; desktop app only.',
+      'Opens an http:, https: or mailto: URL in the default browser. Needs a click or key press in the frame; desktop app only. Orca asks the person before an http(s) host the plugin was not allowed; `opened` is false if they cancel.',
     since: 1,
     scope: 'desktop',
     capability: null,

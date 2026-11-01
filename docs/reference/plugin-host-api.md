@@ -25,7 +25,7 @@ Methods whose capability is `none` need no capability but still need the plugin 
 | [`secrets.protection`](#secretsprotection) | `secrets:own` | worker | no | 1.1 | How secrets are protected at rest: `os-keyring`, or `unavailable` (no OS key store, or Linux `basic_text`), where `secrets.set` fails. |
 | [`settings.get`](#settingsget) | `settings:own` | worker | no | 1.0 | Reads every setting the plugin owns. |
 | [`settings.set`](#settingsset) | `settings:own` | worker | yes | 1.0 | Writes one setting the plugin owns. |
-| [`shell.openExternal`](#shellopenexternal) | none | panel, editor | no | 1.1 | Opens an http:, https: or mailto: URL in the default browser. Needs a click or key press in the frame; desktop app only. |
+| [`shell.openExternal`](#shellopenexternal) | none | panel, editor | no | 1.1 | Opens an http:, https: or mailto: URL in the default browser. Needs a click or key press in the frame; desktop app only. Orca asks the person before an http(s) host the plugin was not allowed; `opened` is false if they cancel. |
 | [`files.saveAs`](#filessaveas) | none | panel, editor | yes | 1.1 | Offers data (a string or ArrayBuffer, up to 64 MiB) in Orca's save dialog; the plugin never learns the path. Needs a click or key press in the frame; desktop app only. |
 
 ### `workspace.readContext`
@@ -134,7 +134,7 @@ Writes one setting the plugin owns.
 
 ### `shell.openExternal`
 
-Opens an http:, https: or mailto: URL in the default browser. Needs a click or key press in the frame; desktop app only.
+Opens an http:, https: or mailto: URL in the default browser. Needs a click or key press in the frame; desktop app only. Orca asks the person before an http(s) host the plugin was not allowed; `opened` is false if they cancel.
 
 ```ts
 (params: { url: string }) => { opened: boolean }

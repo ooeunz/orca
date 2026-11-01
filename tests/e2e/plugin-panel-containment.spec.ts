@@ -38,6 +38,9 @@ type GuestNavigationObservation = {
   willFrameNavigations: { defaultPrevented: boolean; isMainFrame: boolean; url: string }[]
   didFrameNavigations: string[]
   externalUrls: string[]
+  /** Orca's "wants to open" prompts, answered from `promptAnswers` (default Cancel). */
+  prompts: { message: string; detail: string; checkboxLabel: string }[]
+  promptAnswers: { response: number; checkboxChecked: boolean }[]
 }
 
 type GuestDocumentSnapshot = {
@@ -155,7 +158,7 @@ async function startGuestObserver(
   electronApp: ElectronApplication,
   guestId: number
 ): Promise<void> {
-  await electronApp.evaluate(({ shell, webContents }, id) => {
+  await electronApp.evaluate(({ dialog, shell, webContents }, id) => {
     // By id: earlier specs in this worker may leave other plugins' guests alive.
     const guest = webContents.fromId(id)
     if (!guest) {
@@ -164,7 +167,9 @@ async function startGuestObserver(
     const observation: GuestNavigationObservation = {
       willFrameNavigations: [],
       didFrameNavigations: [],
-      externalUrls: []
+      externalUrls: [],
+      prompts: [],
+      promptAnswers: []
     }
     const onWill = (event: Electron.Event<Electron.WebContentsWillFrameNavigateEventParams>) => {
       observation.willFrameNavigations.push({
@@ -177,6 +182,22 @@ async function startGuestObserver(
       observation.didFrameNavigations.push(url)
     }
     const originalOpenExternal = shell.openExternal
+    const originalShowMessageBox = dialog.showMessageBox
+    // Never a native prompt on the test machine: record it and answer from the queue.
+    const recordPrompt = async (...args: unknown[]): Promise<Electron.MessageBoxReturnValue> => {
+      const options = args.at(-1)
+      const field = (name: string): string =>
+        typeof options === 'object' && options !== null && name in options
+          ? String(Object.getOwnPropertyDescriptor(options, name)?.value)
+          : ''
+      observation.prompts.push({
+        message: field('message'),
+        detail: field('detail'),
+        checkboxLabel: field('checkboxLabel')
+      })
+      return { ...(observation.promptAnswers.shift() ?? { response: 1, checkboxChecked: false }) }
+    }
+    dialog.showMessageBox = recordPrompt
     const recordOpenExternal = async (url: string): Promise<void> => {
       observation.externalUrls.push(url)
     }
@@ -192,6 +213,7 @@ async function startGuestObserver(
         guest.off('will-frame-navigate', onWill)
         guest.off('did-frame-navigate', onDid)
         shell.openExternal = originalOpenExternal
+        dialog.showMessageBox = originalShowMessageBox
       }
     })
   }, guestId)
@@ -392,7 +414,7 @@ test('shell.openExternal from a panel needs a real gesture in the guest', async 
         button.textContent = 'Open external'
         button.style.cssText = 'position:fixed;top:0;left:0;width:160px;height:40px;z-index:9'
         button.onclick = () => window.orca.shell.openExternal(${JSON.stringify(target)}).then(
-          () => { window.__openExternal = 'opened' },
+          (result) => { window.__openExternal = result.opened ? 'opened' : 'cancelled' },
           (error) => { window.__openExternal = String(error?.code) })
         document.body.appendChild(button)
       })()`
@@ -403,12 +425,39 @@ test('shell.openExternal from a panel needs a real gesture in the guest', async 
       .poll(() => readInGuest<string | null>(guest, 'window.__openExternal ?? null'))
       .toBe('not_permitted')
     expect((await readGuestObserver(electronApp)).externalUrls).toEqual([])
-    await evalInGuest(guest, 'window.__openExternal = null')
-    await clickInGuest(guest, '#open-external')
-    await expect
-      .poll(() => readInGuest<string | null>(guest, 'window.__openExternal ?? null'))
-      .toBe('opened')
-    expect((await readGuestObserver(electronApp)).externalUrls).toEqual([target])
+    expect((await readGuestObserver(electronApp)).prompts).toEqual([])
+
+    // A real click on a host this plugin was never allowed asks first; Cancel opens nothing.
+    const clickAndRead = async (): Promise<string | null> => {
+      await evalInGuest(guest, 'window.__openExternal = null')
+      await clickInGuest(guest, '#open-external')
+      await expect
+        .poll(() => readInGuest<string | null>(guest, 'window.__openExternal ?? null'))
+        .not.toBeNull()
+      return readInGuest<string | null>(guest, 'window.__openExternal ?? null')
+    }
+    expect(await clickAndRead()).toBe('cancelled')
+    let observed = await readGuestObserver(electronApp)
+    expect(observed.externalUrls).toEqual([])
+    expect(observed.prompts).toEqual([
+      {
+        message: expect.stringContaining('wants to open example.com'),
+        detail: target,
+        checkboxLabel: expect.stringContaining('example.com')
+      }
+    ])
+    // Open with "Always allow": opened now, and the next click opens without asking.
+    await electronApp.evaluate(() => {
+      Object.getOwnPropertyDescriptor(
+        globalThis,
+        '__orcaGuestProbe'
+      )?.value?.observation.promptAnswers.push({ response: 0, checkboxChecked: true })
+    })
+    expect(await clickAndRead()).toBe('opened')
+    expect(await clickAndRead()).toBe('opened')
+    observed = await readGuestObserver(electronApp)
+    expect(observed.externalUrls).toEqual([target, target])
+    expect(observed.prompts).toHaveLength(2)
   } finally {
     if (observing) {
       await stopGuestObserver(electronApp)

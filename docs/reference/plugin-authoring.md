@@ -85,6 +85,7 @@ and work only in the desktop app (in browser clients `orca.shell` and `orca.file
 
 ```js
 button.onclick = () => orca.shell.openExternal('https://example.com/docs') // http:, https:, mailto:
+// Orca asks the person before a web host this plugin was not allowed; { opened: false } if they cancel.
 const { status } = await orca.files.saveAs({
   suggestedName: 'chart.png',
   mimeType: 'image/png',
@@ -113,10 +114,10 @@ app each plugin's frames run in their own isolated process, storage and origin,
 WASM and workers by relative URL (`<script src="lib/app.js">`, `new Worker('worker.js')`,
 `WebAssembly.instantiateStreaming(fetch('lib/mod.wasm'))`), and `localStorage` and IndexedDB
 persist per plugin. The network is closed: anything not in your plugin folder, `data:` or
-`blob:` fails to load, whatever your own CSP says. One known gap: Electron 43 still resolves
-`<link rel="dns-prefetch">` hostnames, so "no network" means no connections or requests, not no
-DNS lookups. Links to other pages in your folder navigate
-the frame; for anything else use `orca.shell.openExternal`. A file that is a custom editor's
+`blob:` fails to load, whatever your own CSP says, and the frame makes no connections, requests or
+DNS lookups of its own. Links to other pages in your folder navigate the frame; for anything else
+use `orca.shell.openExternal`, which needs a click and, for a web host your plugin has not opened
+before, the person's OK in an Orca prompt that shows the URL (they can always allow that host). A file that is a custom editor's
 `entry` gets the editor API; every other HTML page gets the panel API.
 
 Browser clients (`orca serve` in a web browser) still load a frame as one sandboxed document

@@ -26,6 +26,7 @@ export function createPluginHostCallScope(
   const manifestRevision = JSON.stringify(admitted.manifest)
   return {
     callerWebContentsId: caller?.webContentsId,
+    pluginName: admitted.manifest.name,
     assertActive() {
       // A refresh in flight is not a revocation; disable, consent, kill list and removal are.
       const current = findApprovedPlugin(admitted.pluginKey, true)

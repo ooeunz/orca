@@ -8,6 +8,8 @@ import type { PanelMessageBudget } from '../../../shared/plugins/frames/plugin-p
 import type { PluginDesktopFrameServices } from '../workers/plugin-host-method-bindings'
 import { PluginHostCallError, type PluginHostCallScope } from '../workers/plugin-host-call-scope'
 import { markPluginSavedFileAsDownloaded } from './plugin-save-as-download-mark'
+import { confirmPluginExternalOpen } from './plugin-external-open-consent'
+import type { Store } from '../../persistence'
 import { translateMain } from '../../i18n/main-i18n'
 import { blockedPluginSaveAsExtension } from '../../../shared/plugins/frames/plugin-save-as-extensions'
 
@@ -58,7 +60,10 @@ function admit(window: BrowserWindow, pluginId: string): void {
   }
 }
 
-export function installPluginDesktopFrameServices(window: BrowserWindow): void {
+export function installPluginDesktopFrameServices(
+  window: BrowserWindow,
+  store: Pick<Store, 'getSettings' | 'updateSettings'>
+): void {
   hostWindows.add(window)
   window.once('closed', () => {
     hostWindows.delete(window)
@@ -77,7 +82,13 @@ export function installPluginDesktopFrameServices(window: BrowserWindow): void {
       if (!isPluginExternalUrl(url)) {
         throw new Error('url must be an http:, https: or mailto: URL')
       }
-      admit(callingWindow(scope), pluginId)
+      const window = callingWindow(scope)
+      admit(window, pluginId)
+      const pluginName = scope.pluginName ?? pluginId
+      if (!(await confirmPluginExternalOpen({ window, store, pluginId, pluginName, url }))) {
+        return false
+      }
+      // The prompt may have stayed open while the plugin was disabled or removed.
       scope.assertActive()
       await shell.openExternal(url)
       return true

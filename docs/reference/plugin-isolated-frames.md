@@ -22,8 +22,10 @@ Every plugin frame on desktop is an Electron `<webview>`:
   `default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self' data: blob:;
   worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`.
-- **Network is denied at the session**, not by CSP. "No network" means no connections, requests or DNS
-  lookups.
+- **Network is denied at the session**, not by CSP. "No network" means the frame itself makes no
+  connections, requests or DNS lookups. The one way data leaves is a URL the person agrees to open:
+  `orca.shell.openExternal` needs a click or key press, and Orca asks before opening a host this plugin
+  was not allowed before (see Host APIs below).
   - `webRequest.onBeforeRequest` cancels every URL that is not `orca-plugin-frame://<key>/`, `data:`, `blob:`
     or `devtools:`.
   - `setProxy` pins a loopback proxy that drops every connection, with `<-loopback>` so loopback
@@ -96,7 +98,13 @@ keystroke in Orca sets, so iframes (browser clients) are never offered these met
 `not_permitted`. Main runs them only for calls from its own window over IPC, so a dialog or browser tab
 never opens on another machine.
 
-- `orca.shell.openExternal(url)`: `http:`/`https:`/`mailto:` only, opened in the OS browser.
+- `orca.shell.openExternal(url)`: `http:`/`https:`/`mailto:` only, opened in the OS browser. Anything
+  in the URL leaves the machine, so for an `http:`/`https:` host this plugin has not been allowed, Orca
+  first shows "<Plugin> wants to open <host>" with the URL (truncated to 300 characters), Open / Cancel,
+  and "Always allow <host> for this plugin". The choice is kept per plugin and host (with port) in main's
+  settings (`pluginExternalHostGrants`, which the renderer cannot write) and cleared on uninstall.
+  `mailto:` opens without asking: it fills a draft the person still has to send. Resolves
+  `{ opened: false }` when the person cancels.
 - `orca.files.saveAs({ suggestedName, mimeType, data })`: Orca shows its save dialog; the plugin never sees
   the chosen path. `data` is a string or `ArrayBuffer`, capped at 64 MiB. Resolves with
   `{ status: 'saved' }`, or `{ status: 'cancelled' }` when the person cancels. Any `mimeType` is accepted;
