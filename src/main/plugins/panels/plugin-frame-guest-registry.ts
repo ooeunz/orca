@@ -13,6 +13,11 @@ export type PluginFrameGuestHooks = {
   attach: (guest: WebContents, host: WebContents) => boolean
 }
 
+// Why: Blink resolves rel=dns-prefetch on the system resolver, past the session's proxy and webRequest.
+export const PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS: readonly string[] = [
+  '--blink-settings=dnsPrefetchingEnabled=false'
+]
+
 let hooks: PluginFrameGuestHooks | null = null
 
 export function setPluginFrameGuestHooks(next: PluginFrameGuestHooks | null): void {

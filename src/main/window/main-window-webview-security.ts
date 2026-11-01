@@ -28,7 +28,8 @@ import { installBrowserJavaScriptDialogs } from '../browser/browser-javascript-d
 import {
   admitPluginFrameAttach,
   attachPluginFrameGuest,
-  isPluginFramePartition
+  isPluginFramePartition,
+  PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS
 } from '../plugins/panels/plugin-frame-guest-registry'
 
 /** orca-preview is outside normal browser URL admission; require the doc partition and a main-minted user-preview grant. */
@@ -170,7 +171,7 @@ function hardenPluginFrameGuestPreferences(
 ): void {
   // Clear legacy and inherited channels so the guest cannot pick up the main bridge or arguments.
   Reflect.deleteProperty(webPreferences, 'preloadURL')
-  delete webPreferences.additionalArguments
+  webPreferences.additionalArguments = [...PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS]
   // Why not a typed field: Electron derives it from `allowpopups` before this event.
   Object.assign(webPreferences, { disablePopups: true })
   Object.assign(webPreferences, ORCA_BROWSER_GUEST_WEB_PREFERENCES, {

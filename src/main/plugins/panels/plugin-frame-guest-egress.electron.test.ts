@@ -104,7 +104,12 @@ app.whenReady().then(async () => {
   const guest = await guests.preparePluginFrameGuest(config.pluginKey, 'panel', 'probe')
   const window = new BrowserWindow({
     show: false,
-    webPreferences: { partition: guest.partition, sandbox: true, contextIsolation: true }
+    webPreferences: {
+      partition: guest.partition,
+      sandbox: true,
+      contextIsolation: true,
+      additionalArguments: [...guests.PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS]
+    }
   })
   if (!guests.attachPluginFrameGuest(window.webContents, window.webContents)) throw new Error('not a plugin guest')
   const guestSession = window.webContents.session
@@ -162,7 +167,7 @@ function hostResolverEvents(netLogText: string, host: string): string[] {
 
 describe('plugin frame guest egress under Electron', () => {
   // Why 60s: a real Electron guest negotiates WebRTC against local relays and waits out prefetch.
-  it('keeps WebRTC, preconnect and fetch off the network; DNS prefetch is a pinned residual', async () => {
+  it('keeps WebRTC, DNS prefetch, preconnect and fetch off the network', async () => {
     const root = mkdtempSync(join(tmpdir(), 'orca-frame-egress-'))
     roots.push(root)
     const pluginRoot = join(root, 'plugin')
@@ -208,7 +213,7 @@ describe('plugin frame guest egress under Electron', () => {
       stdin: {
         contents:
           "export * from './plugin-frame-guest-sessions'\n" +
-          "export { attachPluginFrameGuest } from './plugin-frame-guest-registry'\n",
+          "export { attachPluginFrameGuest, PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS } from './plugin-frame-guest-registry'\n",
         resolveDir: join(process.cwd(), 'src/main/plugins/panels'),
         loader: 'ts'
       },
@@ -257,13 +262,9 @@ describe('plugin frame guest egress under Electron', () => {
     for (const tag of ['page', 'srcdoc', 'javascript']) {
       // Preconnect goes through the refusing proxy, so its host is never resolved here.
       expect(hostResolverEvents(netLog, hint(`${tag}-pre`)), `${tag}-pre`).toEqual([])
-      // Tripwire, not a guard: Electron 43 resolves dns-prefetch hints on the system resolver
-      // outside webRequest and the proxy, and ignores x-dns-prefetch-control and the
-      // dns-prefetch-disable switch. When this fails, prefetch is fenced; flip it and the docs.
+      // dns-prefetch bypasses the proxy; only the guest renderer's blink setting stops it.
       for (const kind of ['dns', 'dyn']) {
-        expect(hostResolverEvents(netLog, hint(`${tag}-${kind}`)), `${tag}-${kind}`).toContain(
-          'HOST_RESOLVER_MANAGER_CREATE_JOB'
-        )
+        expect(hostResolverEvents(netLog, hint(`${tag}-${kind}`)), `${tag}-${kind}`).toEqual([])
       }
     }
   }, 60_000)

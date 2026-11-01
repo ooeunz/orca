@@ -22,17 +22,18 @@ Every plugin frame on desktop is an Electron `<webview>`:
   `default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';
   img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self' data: blob:;
   worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`.
-- **Network is denied at the session**, not by CSP. "No network" means no connections or requests: DNS
-  lookups for `dns-prefetch` hints still happen (residual below).
+- **Network is denied at the session**, not by CSP. "No network" means no connections, requests or DNS
+  lookups.
   - `webRequest.onBeforeRequest` cancels every URL that is not `orca-plugin-frame://<key>/`, `data:`, `blob:`
     or `devtools:`.
   - `setProxy` pins a loopback proxy that drops every connection, with `<-loopback>` so loopback
     targets are proxied too, so traffic webRequest never sees (preconnect, WebRTC TURN-over-TCP) has
-    nowhere to go. Residual: Electron 43 still resolves `<link rel="dns-prefetch">` hostnames on the
-    system resolver, outside webRequest and the proxy, so a DNS label can leak
-    (pinned by `plugin-frame-guest-egress.electron.test.ts`). `X-DNS-Prefetch-Control: off`, the
-    matching `<meta>`, and the `dns-prefetch-disable` switch were measured and do not stop it; preconnect
-    hints go through the proxy and are never resolved.
+    nowhere to go; preconnect hints go through it and are never resolved.
+  - `<link rel="dns-prefetch">` resolves on the system resolver, outside webRequest and the proxy, so
+    `will-attach-webview` pins the guest renderer's `--blink-settings=dnsPrefetchingEnabled=false`
+    (`PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS`), covering static, script-inserted and child-frame hints
+    (`plugin-frame-guest-egress.electron.test.ts`). `X-DNS-Prefetch-Control: off`, the matching `<meta>`
+    and the app-wide `dns-prefetch-disable` switch were measured and do not stop it.
 - **Storage**: uninstalling a plugin clears its partition (`clearStorageData` and `clearCache`).
   - Guest `setWebRTCIPHandlingPolicy('disable_non_proxied_udp')`.
   - Permission request/check handlers deny everything, clipboard writes included (as for srcdoc frames);

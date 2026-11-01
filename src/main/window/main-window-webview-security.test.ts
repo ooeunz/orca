@@ -38,7 +38,9 @@ vi.mock('../browser/extensions/browser-extension-session-loader', () => ({
 vi.mock('../browser/browser-javascript-dialogs', () => ({
   installBrowserJavaScriptDialogs: mocks.installJavaScriptDialogs
 }))
-vi.mock('../plugins/panels/plugin-frame-guest-registry', () => ({
+vi.mock(import('../plugins/panels/plugin-frame-guest-registry'), async (importOriginal) => ({
+  PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS: (await importOriginal())
+    .PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS,
   admitPluginFrameAttach: mocks.admitPluginFrame,
   isPluginFramePartition: (partition: string) => partition.startsWith('persist:orca-plugin-'),
   attachPluginFrameGuest: (guest: { session?: unknown }, host: unknown) => {
@@ -401,7 +403,10 @@ describe('plugin frame guests', () => {
     expect(params).not.toHaveProperty('preload')
     expect(params).not.toHaveProperty('allowpopups')
     expect(preferences).not.toHaveProperty('preloadURL')
-    expect(preferences).not.toHaveProperty('additionalArguments')
+    // Markup's arguments are replaced by main's renderer pins, never merged.
+    expect(preferences.additionalArguments).toEqual([
+      '--blink-settings=dnsPrefetchingEnabled=false'
+    ])
     expect(String(preferences.preload)).toMatch(/plugin-frame-guest-preload\.js$/)
     expect(preferences).toMatchObject({
       partition,
