@@ -241,7 +241,7 @@ describe('plugin frame guest egress under Electron', () => {
     const result = await runBrowserRouteEgressElectron(root, mainPath)
 
     expect(result.guestUrl).toMatch(
-      /^orca-plugin-frame:\/\/[0-9a-f]{16}\/panel\.html\?rev=dev-[0-9a-f]{16}$/
+      /^orca-plugin-frame:\/\/[0-9a-f]{16}\/panel\.html\?rev=dev-[0-9a-f]{8}-0$/
     )
     // Every realm ran (no preload here, so no window.orca) and none got out.
     expect(result.page).toEqual({

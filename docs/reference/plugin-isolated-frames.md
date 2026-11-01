@@ -62,8 +62,9 @@ Every plugin frame on desktop is an Electron `<webview>`:
 - **Theme**: main bakes the host's current `--orca-*` tokens and `light`/`dark` class into every document it
   serves (the renderer sends its theme with each entry read), so the first paint and boot-time token reads
   match; `hello` and the `theme` event keep it current without a reload.
-- **Reloads**: the guest URL carries `rev=` (the installed content hash, or a dev revision bumped on every
-  plugin change), so an update or an asset-only dev edit remounts the guest.
+- **Reloads**: the guest URL carries `rev=`: the installed content hash, or for a dev folder a per-run
+  counter the dev watcher bumps on each change it reports under that folder (`plugin-dev-revision.ts`;
+  the tree is never hashed for this). An update or an asset-only dev edit remounts the guest.
 - **Input**: Orca's window shortcuts are forwarded from a focused guest through the browser tab path, minus
   browser-page chords (address bar, find, reload, history, page zoom); a custom editor's save chord still
   rides `editor.keydown`, so it fires once. Editable fields get Orca's Cut/Copy/Paste context menu.

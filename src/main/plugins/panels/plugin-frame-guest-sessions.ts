@@ -12,7 +12,7 @@ import {
 import type { PluginFrameGuest } from '../../../shared/plugins/frames/plugin-frame-bridge'
 import type { PluginFrameSurface } from '../../../shared/plugins/frames/plugin-panel-shell'
 import type { ValidDiscoveredPlugin } from '../plugin-discovery'
-import { hashPluginTree } from '../plugin-content-hash'
+import { pluginDevRevision } from '../plugin-dev-revision'
 import type { KeybindingOverrides } from '../../../shared/keybindings'
 import { createPluginFrameRequestHandler } from './plugin-frame-protocol'
 import { pluginFrameAttachKey } from './plugin-frame-request-policy'
@@ -171,17 +171,13 @@ function contributionUrl(
 }
 
 /** Part of the guest URL, so an update or a dev edit (even asset-only) remounts the guest, and
- *  nothing else does. Dev trees change in place, so theirs is hashed on each read. */
-async function contentRevision(plugin: ValidDiscoveredPlugin): Promise<string> {
-  if (plugin.contentHash) {
-    return plugin.contentHash.slice(0, 16)
-  }
-  const tree = await hashPluginTree(plugin.rootDir)
-  return tree.ok ? `dev-${tree.hash.slice(0, 16)}` : 'dev'
+ *  nothing else does. Dev trees change in place: the dev watcher counts their edits. */
+function contentRevision(plugin: ValidDiscoveredPlugin): string {
+  return plugin.contentHash ? plugin.contentHash.slice(0, 16) : pluginDevRevision(plugin.rootDir)
 }
 
-async function withRevision(url: string, plugin: ValidDiscoveredPlugin): Promise<string> {
-  const revision = await contentRevision(plugin)
+function withRevision(url: string, plugin: ValidDiscoveredPlugin): string {
+  const revision = contentRevision(plugin)
   return `${url}${url.includes('?') ? '&' : '?'}rev=${encodeURIComponent(revision)}`
 }
 
@@ -198,7 +194,7 @@ export async function preparePluginFrameGuest(
   if (!plugin || !entryUrl) {
     return null
   }
-  const url = await withRevision(entryUrl, plugin)
+  const url = withRevision(entryUrl, plugin)
   try {
     // Why before answering: the guest must never start on a session whose proxy is not pinned.
     await ensureSession(frameKey)

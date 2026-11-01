@@ -15,6 +15,7 @@ vi.mock('electron', () => ({
 
 const { clearPluginFrameStorage } = await import('./plugin-frame-guest-sessions')
 const { pluginFrameKey } = await import('../../../shared/plugins/frames/plugin-frame-guest')
+const { bumpPluginDevRevision } = await import('../plugin-dev-revision')
 const { mkdirSync, mkdtempSync } = await import('node:fs')
 const { tmpdir } = await import('node:os')
 const { join } = await import('node:path')
@@ -72,6 +73,7 @@ describe('revokeUnapprovedPluginFrames', () => {
     let refreshing = false
     const plugin = {
       pluginKey: 'acme.kill',
+      rootDir: '/plugins/acme.kill',
       manifest: { contributes: { panels: [{ id: 'p', entry: 'p.html' }], customEditors: [] } }
     }
     const sess = {
@@ -92,7 +94,7 @@ describe('revokeUnapprovedPluginFrames', () => {
     mocks.allWebContents.mockReturnValue([guest])
     bindPluginFrameGuests({
       findApprovedPlugin: (_key, allowRefreshPause) =>
-        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: guest setup reads only pluginKey and manifest contributions.
+        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: guest setup reads only pluginKey, rootDir and manifest contributions.
         approved && (!refreshing || allowRefreshPause) ? (plugin as never) : null,
       getDiscovered: () => [{ pluginKey: 'acme.kill' }],
       onChanged: () => () => {},
@@ -141,10 +143,13 @@ describe('guest URL revision', () => {
     })
     const url = async () => (await preparePluginFrameGuest('acme.rev', 'panel', 'p'))?.url
     const first = await url()
-    expect(first).toMatch(/\/p\.html\?rev=dev-[0-9a-f]{16}$/)
+    expect(first).toMatch(/\/p\.html\?rev=dev-[0-9a-f]{8}-0$/)
     expect(await url()).toBe(first)
+    // Edits count only once the dev watcher reports them; the tree is never hashed.
     writeFileSync(join(rootDir, 'asset.js'), 'changed')
-    expect(await url()).not.toBe(first)
+    expect(await url()).toBe(first)
+    bumpPluginDevRevision(rootDir)
+    expect(await url()).toMatch(/\?rev=dev-[0-9a-f]{8}-1$/)
     contentHash = 'a'.repeat(64)
     expect(await url()).toMatch(/\?rev=a{16}$/)
   })
