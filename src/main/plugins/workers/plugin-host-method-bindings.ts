@@ -202,11 +202,10 @@ const HANDLERS: Record<PluginHostMethodName, BoundPluginHostMethod> = {
       opened: await requireDesktop(services).openExternal(pluginId, url, scope)
     })
   ),
-  'files.saveAs': bind(api['files.saveAs'], async (params, { pluginId, services, scope }) => ({
-    status: (await requireDesktop(services).saveFile(pluginId, params, scope))
-      ? 'saved'
-      : 'cancelled'
-  }))
+  'files.saveAs': bind(api['files.saveAs'], async (params, { pluginId, services, scope }) => {
+    const saved = await requireDesktop(services).saveFile(pluginId, params, scope)
+    return { status: saved ? ('saved' as const) : ('cancelled' as const) }
+  })
 }
 
 function requireDesktop(services: PluginHostServices): PluginDesktopFrameServices {
