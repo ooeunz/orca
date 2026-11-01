@@ -11,6 +11,10 @@ import {
   PLUGIN_TEMPLATE_NAMES
 } from '../plugin-authoring/plugin-template-names'
 import {
+  formatPluginReleaseEntry,
+  pluginReleaseEntryForFolder
+} from '../plugin-authoring/plugin-release-entry'
+import {
   printPluginResult,
   requirePluginPathArg,
   resolveLocalPluginPath
@@ -131,5 +135,27 @@ export const PLUGIN_AUTHORING_HANDLERS: Record<string, CommandHandler> = {
       throw invalidError(report)
     }
     printPluginResult(ctx, report, formatInspection(report))
+  },
+  'plugin release-entry': async (ctx) => {
+    const path = resolveLocalPluginPath(ctx, requirePluginPathArg(ctx, 'path'), 'release-entry')
+    const report = await readTarget(validatePluginTarget, path)
+    if (report.kind !== 'plugin') {
+      throw new RuntimeClientError(
+        'invalid_argument',
+        `${report.file} is a catalog; pass the plugin folder.`
+      )
+    }
+    if (!report.valid) {
+      throw invalidError(report)
+    }
+    const result = await pluginReleaseEntryForFolder(report)
+    if (!result.entry) {
+      // Why not plugin_invalid: the files are valid; HEAD or the repository is what is missing.
+      throw new RuntimeClientError('invalid_argument', result.note ?? 'no catalog release entry', {
+        ...result,
+        nextSteps: ['Commit the plugin in a Git repository, then run this again.']
+      })
+    }
+    printPluginResult(ctx, result, formatPluginReleaseEntry(result))
   }
 }
