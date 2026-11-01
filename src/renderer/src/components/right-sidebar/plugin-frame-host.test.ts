@@ -486,9 +486,12 @@ describe('createPluginFrameEnvelopeHandler (guest transport)', () => {
     expect(methods(guestHello.replies())).toContain('shell.openExternal')
   })
 
-  it('spends a one-shot host press grant for a guest without activation', async () => {
+  it("spends a one-shot host press grant for a components panel's guest", async () => {
     let grants = 1
-    const { handle, callHostMethod } = guest({ consumeHostActivation: () => grants-- > 0 })
+    const { handle, callHostMethod } = guest({
+      declarative: { onRender: vi.fn(), onError: vi.fn() },
+      consumeHostActivation: () => grants-- > 0
+    })
     const open = req(1, 'shell.openExternal', { url: 'https://example.com' })
     handle(open, { userActivation: false, transport: 'guest' })
     handle({ ...open, id: 2 }, { userActivation: false, transport: 'guest' })
