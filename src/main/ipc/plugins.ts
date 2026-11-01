@@ -1,4 +1,3 @@
-import { pluginThemeSettingsAfterRemoval } from '../../shared/plugin-theme-settings'
 import { ipcMain } from 'electron'
 import { z } from 'zod'
 import type { Store } from '../persistence'
@@ -12,6 +11,7 @@ import {
   removeInstalledPlugin
 } from '../plugins/installation/plugin-install'
 import { applyPluginConsent, applyPluginEnablement } from '../plugins/plugin-enablement'
+import { clearRemovedPluginSettings } from '../plugins/plugin-removal-settings'
 import { readApprovedPluginNewFileTemplate } from '../plugins/plugin-new-file-template'
 import type { PluginService } from '../plugins/plugin-service'
 import { registerPluginFrameEntryHandlers, rendererPanelOwner } from './plugin-frame-entry-ipc'
@@ -21,7 +21,6 @@ import {
 } from '../plugins/panels/plugin-frame-guest-sessions'
 import { isQualifiedPluginKey } from '../../shared/plugins/manifest/plugin-manifest'
 import { pluginConsentRequestSchema } from '../../shared/plugins/approval/plugin-consent-request'
-import { normalizePluginIdList } from '../../shared/plugins/approval/plugin-consent-state'
 import {
   isAllowedPluginGitUrl,
   PLUGIN_COMMIT_PATTERN,
@@ -233,25 +232,12 @@ export function registerPluginHandlers(
       removeInstalledPlugin({
         pluginsDir,
         pluginsDataDir: getPluginsDataDir(pluginService.options.userDataPath),
-        pluginKey: parsed.pluginKey
+        pluginKey: parsed.pluginKey,
+        // Why before deletion: a crash mid-delete must not leave an approved half-removed plugin.
+        beforeRemove: () => clearRemovedPluginSettings(store, parsed.pluginKey)
       })
     )
     await clearPluginFrameStorage(parsed.pluginKey)
-    const settings = store.getSettings()
-    const consents = { ...settings.pluginConsents }
-    delete consents[parsed.pluginKey]
-    const disabledPlugins = normalizePluginIdList(settings.disabledPlugins).filter(
-      (pluginKey) => pluginKey !== parsed.pluginKey
-    )
-    store.updateSettings(
-      {
-        pluginConsents: consents,
-        disabledPlugins,
-        ...pluginThemeSettingsAfterRemoval(settings, parsed.pluginKey)
-      },
-      // Why no origin: the uninstalling window must also drop the plugin's theme choices.
-      { notifyListeners: true }
-    )
     await pluginService.refresh()
     return listPluginsForClients(pluginService)
   })

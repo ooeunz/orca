@@ -1,0 +1,25 @@
+import { pluginThemeSettingsAfterRemoval } from '../../shared/plugin-theme-settings'
+import { normalizePluginIdList } from '../../shared/plugins/approval/plugin-consent-state'
+import type { Store } from '../persistence'
+
+/** Forgets a removed plugin's consent, disabled flag and theme choices. */
+export function clearRemovedPluginSettings(
+  store: Pick<Store, 'getSettings' | 'updateSettings'>,
+  pluginKey: string
+): void {
+  const settings = store.getSettings()
+  const consents = { ...settings.pluginConsents }
+  delete consents[pluginKey]
+  const disabledPlugins = normalizePluginIdList(settings.disabledPlugins).filter(
+    (key) => key !== pluginKey
+  )
+  store.updateSettings(
+    {
+      pluginConsents: consents,
+      disabledPlugins,
+      ...pluginThemeSettingsAfterRemoval(settings, pluginKey)
+    },
+    // Why no origin: the uninstalling window must also drop the plugin's theme choices.
+    { notifyListeners: true }
+  )
+}

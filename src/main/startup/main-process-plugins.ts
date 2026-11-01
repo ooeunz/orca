@@ -19,6 +19,8 @@ import { getPluginsDataDir } from '../plugins/plugin-discovery'
 import { resolveBundledPluginRoot } from '../plugins/plugin-bundled-bootstrap'
 import { resolvePluginHostEntryPath } from '../plugins/workers/plugin-host-process'
 import { applyPluginConsent, applyPluginEnablement } from '../plugins/plugin-enablement'
+import { clearRemovedPluginSettings } from '../plugins/plugin-removal-settings'
+import { clearPluginFrameStorage } from '../plugins/panels/plugin-frame-guest-sessions'
 import { setPluginServiceForRpc } from '../runtime/rpc/methods/plugins'
 import {
   normalizePluginConsents,
@@ -175,6 +177,9 @@ export async function initializeMainProcessPlugins(runtime: OrcaRuntimeService):
     hostVersion: pluginHostVersion(app.getVersion()),
     isEnabled: () => state.store?.getSettings().pluginSystemEnabled === true,
     blockedPluginReason: (pluginKey) => state.pluginKillListService?.reason(pluginKey) ?? null,
+    // Why: a retired bundled plugin must not leave consent, theme choices or frame storage behind.
+    beforeRetire: (pluginKey) => clearRemovedPluginSettings(store, pluginKey),
+    afterRetire: (pluginKey) => clearPluginFrameStorage(pluginKey),
     refreshPlugins: () => state.pluginService?.refresh() ?? Promise.resolve()
   })
   const requestBundledPluginBootstrap = (): void => {
