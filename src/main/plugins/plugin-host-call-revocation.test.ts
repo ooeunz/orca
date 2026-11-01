@@ -28,7 +28,10 @@ function gate() {
 /** A save whose dialog stays open until `dialog.open()`, then writes only if still active. */
 async function createSavingPlugin() {
   const root = await mkdtemp(join(tmpdir(), 'orca-plugin-revocation-'))
-  const settings = { disabled: [] as string[], consents: {} as Record<string, string> }
+  const settings: { disabled: string[]; consents: Record<string, string> } = {
+    disabled: [],
+    consents: {}
+  }
   let killed: PluginKillListEntry | null = null
   const dialog = gate()
   const writes: string[] = []

@@ -47,8 +47,12 @@ window.addEventListener(
 /** A refused request still settles: the page gets the same error the host would have sent. */
 function refuse(message: unknown, refusal: PluginFrameSendRefusal): void {
   const id =
-    typeof message === 'object' && message !== null && 'kind' in message && message.kind === 'req'
-      ? Reflect.get(message, 'id')
+    typeof message === 'object' &&
+    message !== null &&
+    'kind' in message &&
+    message.kind === 'req' &&
+    'id' in message
+      ? message.id
       : null
   if (typeof id !== 'number' || !receiver) {
     return

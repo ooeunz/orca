@@ -91,8 +91,8 @@ describe('revokeUnapprovedPluginFrames', () => {
     const guest = { session: sess, isDestroyed: () => false, close: vi.fn() }
     mocks.allWebContents.mockReturnValue([guest])
     bindPluginFrameGuests({
-      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: guest setup reads only pluginKey and manifest contributions.
       findApprovedPlugin: (_key, allowRefreshPause) =>
+        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: guest setup reads only pluginKey and manifest contributions.
         approved && (!refreshing || allowRefreshPause) ? (plugin as never) : null,
       getDiscovered: () => [{ pluginKey: 'acme.kill' }],
       onChanged: () => () => {},
