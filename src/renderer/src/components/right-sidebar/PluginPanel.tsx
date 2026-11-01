@@ -31,7 +31,7 @@ function PluginPanel({ tabKey }: PluginPanelProps): React.JSX.Element {
     ? (panels.find((entry) => entry.tabKey === tabKey) ?? null)
     : null
   const frameRef = useRef<PluginFrameElement | null>(null)
-  const { entry, markUnresponsive } = usePluginFrameEntry(
+  const { entry, markUnresponsive, remountGone } = usePluginFrameEntry(
     'panel',
     panel?.pluginKey ?? null,
     panel?.id ?? null
@@ -49,7 +49,8 @@ function PluginPanel({ tabKey }: PluginPanelProps): React.JSX.Element {
     frameRef,
     frameKey: panelFrameKey,
     sessionToken: entry.status === 'ready' ? entry.sessionToken : null,
-    onUnresponsive: markUnresponsive
+    onUnresponsive: markUnresponsive,
+    onGuestGone: remountGone
   })
 
   useEffect(() => {

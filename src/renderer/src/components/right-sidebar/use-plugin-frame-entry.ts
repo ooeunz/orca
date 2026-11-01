@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PluginFrameGuest } from '../../../../shared/plugins/frames/plugin-frame-bridge'
 import { currentPluginFrameTheme } from './plugin-panel-design-token-css'
 
@@ -18,14 +18,18 @@ export type PluginFrameEntryState =
  * A plugin frame's document (panel or custom editor), reread on every plugin change. Only new
  * HTML bumps the revision that remounts the frame; a suspended frame stays suspended until then.
  */
+const GUEST_REMOUNT_LIMIT = 3
+const GUEST_REMOUNT_WINDOW_MS = 60_000
+
 export function usePluginFrameEntry(
   surface: 'panel' | 'editor',
   /** Null while there is no plugin to read from. */
   pluginKey: string | null,
   /** The panel or custom editor id in the plugin's manifest. */
   contributionId: string | null
-): { entry: PluginFrameEntryState; markUnresponsive: () => void } {
+): { entry: PluginFrameEntryState; markUnresponsive: () => void; remountGone: () => void } {
   const [entry, setEntry] = useState<PluginFrameEntryState>({ status: 'loading' })
+  const remountRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (!pluginKey || !contributionId) {
@@ -93,6 +97,22 @@ export function usePluginFrameEntry(
         })
     }
     load()
+    // A guest main closed (revoked, crashed) at an unchanged URL would stay blank: re-read the
+    // entry and force a new document; a few tries, then the error state.
+    const goneAt: number[] = []
+    remountRef.current = () => {
+      const now = Date.now()
+      while (goneAt.length > 0 && (goneAt[0] ?? now) <= now - GUEST_REMOUNT_WINDOW_MS) {
+        goneAt.shift()
+      }
+      goneAt.push(now)
+      if (goneAt.length > GUEST_REMOUNT_LIMIT) {
+        fail()
+        return
+      }
+      currentHtml = null
+      load()
+    }
     const unsubscribe = pluginsApi.onChanged ? pluginsApi.onChanged(load) : null
     return () => {
       cancelled = true
@@ -101,5 +121,6 @@ export function usePluginFrameEntry(
   }, [surface, pluginKey, contributionId])
 
   const markUnresponsive = useCallback(() => setEntry({ status: 'unresponsive' }), [])
-  return { entry, markUnresponsive }
+  const remountGone = useCallback(() => remountRef.current(), [])
+  return { entry, markUnresponsive, remountGone }
 }

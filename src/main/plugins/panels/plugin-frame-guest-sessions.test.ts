@@ -69,6 +69,7 @@ describe('revokeUnapprovedPluginFrames', () => {
       await import('./plugin-frame-guest-sessions')
     let approved = true
     let killListed = false
+    let refreshing = false
     const plugin = {
       pluginKey: 'acme.kill',
       manifest: { contributes: { panels: [{ id: 'p', entry: 'p.html' }], customEditors: [] } }
@@ -91,7 +92,8 @@ describe('revokeUnapprovedPluginFrames', () => {
     mocks.allWebContents.mockReturnValue([guest])
     bindPluginFrameGuests({
       // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: guest setup reads only pluginKey and manifest contributions.
-      findApprovedPlugin: () => (approved ? (plugin as never) : null),
+      findApprovedPlugin: (_key, allowRefreshPause) =>
+        approved && (!refreshing || allowRefreshPause) ? (plugin as never) : null,
       getDiscovered: () => [{ pluginKey: 'acme.kill' }],
       onChanged: () => () => {},
       options: { getPluginKillListEntry: () => (killListed ? { reason: 'bad' } : null) }
@@ -100,6 +102,11 @@ describe('revokeUnapprovedPluginFrames', () => {
 
     await revokeUnapprovedPluginFrames()
     expect(guest.close).not.toHaveBeenCalled()
+    // A refresh in flight (worker start, crash or reap) is not a revocation.
+    refreshing = true
+    await revokeUnapprovedPluginFrames()
+    expect(guest.close).not.toHaveBeenCalled()
+    refreshing = false
     approved = false
     await revokeUnapprovedPluginFrames()
     expect(guest.close).toHaveBeenCalled()

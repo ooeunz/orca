@@ -24,14 +24,18 @@ export function usePluginFrameHost(options: {
   sessionToken: string | null
   editor?: PluginFrameEditorChannel
   onUnresponsive: () => void
+  /** The guest's WebContents went away under an unchanged document (closed, crashed). */
+  onGuestGone?: () => void
 }): { onFrameLoad: () => void } {
   const { surface, frameRef, frameKey, sessionToken, editor } = options
   const [loadedFrameKey, setLoadedFrameKey] = useState<string | null>(null)
   const onUnresponsiveRef = useRef(options.onUnresponsive)
+  const onGuestGoneRef = useRef(options.onGuestGone)
   // Why a ref: main rotates sessions without replacing the document or its in-flight calls.
   const sessionTokenRef = useRef(sessionToken)
   useLayoutEffect(() => {
     onUnresponsiveRef.current = options.onUnresponsive
+    onGuestGoneRef.current = options.onGuestGone
     sessionTokenRef.current = sessionToken
   })
   const getFrameWindow = useMemo(() => () => pluginFrameWindowOf(frameRef.current), [frameRef])
@@ -79,12 +83,17 @@ export function usePluginFrameHost(options: {
       }
     }
     const onReady = (): void => setLoadedFrameKey(frameKey)
+    const onGone = (): void => onGuestGoneRef.current?.()
     element.addEventListener('ipc-message', onMessage)
     element.addEventListener('dom-ready', onReady)
+    element.addEventListener('destroyed', onGone)
+    element.addEventListener('render-process-gone', onGone)
     return () => {
       active = false
       element.removeEventListener('ipc-message', onMessage)
       element.removeEventListener('dom-ready', onReady)
+      element.removeEventListener('destroyed', onGone)
+      element.removeEventListener('render-process-gone', onGone)
     }
   }, [editor, frameKey, frameRef, getFrameWindow, surface, watchdog])
 

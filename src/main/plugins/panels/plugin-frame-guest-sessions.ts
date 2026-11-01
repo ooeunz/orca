@@ -53,7 +53,10 @@ export function configurePluginFrameGuests(next: PluginFrameGuestSource | null):
 }
 
 type PluginFrameGuestService = {
-  findApprovedPlugin: (pluginKey: string) => ValidDiscoveredPlugin | null
+  findApprovedPlugin: (
+    pluginKey: string,
+    allowRefreshPause?: boolean
+  ) => ValidDiscoveredPlugin | null
   getDiscovered: () => readonly { pluginKey?: string }[]
   onChanged: (listener: () => void) => () => void
   options: {
@@ -65,7 +68,9 @@ type PluginFrameGuestService = {
 /** Serves the plugin service's approved plugins, and revokes guests whenever approval changes. */
 export function bindPluginFrameGuests(service: PluginFrameGuestService): void {
   configurePluginFrameGuests({
-    findApprovedPlugin: (pluginKey) => service.findApprovedPlugin(pluginKey),
+    // Why the refresh pause: a refresh (any worker start, crash or reap) briefly marks every plugin
+    // unready; guests must not be closed, refused or 404d for that.
+    findApprovedPlugin: (pluginKey) => service.findApprovedPlugin(pluginKey, true),
     listPluginKeys: () =>
       service.getDiscovered().flatMap((plugin) => (plugin.pluginKey ? [plugin.pluginKey] : [])),
     isKillListed: (pluginKey) => Boolean(service.options.getPluginKillListEntry?.(pluginKey)),

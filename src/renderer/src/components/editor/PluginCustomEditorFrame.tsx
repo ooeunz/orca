@@ -89,7 +89,11 @@ export default function PluginCustomEditorFrame({
   const isLarge =
     (binaryDocument?.bytes.byteLength ?? content.length) > CUSTOM_EDITOR_LARGE_DOCUMENT_BYTES
 
-  const { entry, markUnresponsive } = usePluginFrameEntry('editor', editor.pluginKey, editor.id)
+  const { entry, markUnresponsive, remountGone } = usePluginFrameEntry(
+    'editor',
+    editor.pluginKey,
+    editor.id
+  )
 
   const frameKey = entry.status === 'ready' ? `${editor.key}:${entry.revision}` : null
   const guest = usablePluginFrameGuest(entry.status === 'ready' ? entry.guest : undefined)
@@ -147,7 +151,8 @@ export default function PluginCustomEditorFrame({
     frameKey,
     sessionToken: entry.status === 'ready' ? entry.sessionToken : null,
     editor: host.channel,
-    onUnresponsive: markUnresponsive
+    onUnresponsive: markUnresponsive,
+    onGuestGone: remountGone
   })
 
   useEffect(() => {
