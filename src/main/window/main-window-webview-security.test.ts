@@ -391,7 +391,10 @@ describe('plugin frame guests', () => {
       nodeIntegration: true,
       webSecurity: false,
       webviewTag: true,
-      disablePopups: false
+      disablePopups: false,
+      experimentalFeatures: true,
+      enableWebSQL: true,
+      zoomFactor: 1.25
     }
 
     handlers['will-attach-webview']?.(
@@ -403,6 +406,10 @@ describe('plugin frame guests', () => {
     expect(params).not.toHaveProperty('preload')
     expect(params).not.toHaveProperty('allowpopups')
     expect(preferences).not.toHaveProperty('preloadURL')
+    // Anything main did not pin is dropped; zoom still follows the host window.
+    expect(preferences).not.toHaveProperty('experimentalFeatures')
+    expect(preferences).not.toHaveProperty('enableWebSQL')
+    expect(preferences.zoomFactor).toBe(1.25)
     // Markup's arguments are replaced by main's renderer pins, never merged.
     expect(preferences.additionalArguments).toEqual([
       '--blink-settings=dnsPrefetchingEnabled=false'

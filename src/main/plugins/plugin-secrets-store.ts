@@ -24,7 +24,7 @@ export type PluginSecretsResult<T> = { ok: true; value: T } | { ok: false; error
 
 const UNREADABLE_VAULT_ERROR = 'secret vault exists but could not be read; refusing to overwrite it'
 
-/** At-rest protection plugin secrets would get; backs a future `secrets.protection()` host method. */
+/** At-rest protection plugin secrets get; backs the `secrets.protection` host method. */
 export function pluginSecretsProtection(): SecretProtectionAssessment {
   return assessSecretProtection()
 }

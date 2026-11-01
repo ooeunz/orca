@@ -20,7 +20,8 @@ function createServices(storageSet: PluginHostServices['storage']['set']): Plugi
     secrets: {
       get: vi.fn().mockReturnValue({ ok: true, value: null }),
       set: vi.fn().mockReturnValue({ ok: true }),
-      delete: vi.fn()
+      delete: vi.fn(),
+      protection: vi.fn().mockReturnValue('unavailable')
     },
     settings: {
       getAll: vi.fn().mockReturnValue({}),
@@ -294,6 +295,25 @@ describe('terminal.sendText', () => {
 
     expect(outcome).toEqual({ ok: true, value: { accepted: true } })
     expect(delegate.sendTerminal).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('secrets.protection', () => {
+  it('tells a secrets-capable worker whether writes would be refused', async () => {
+    const call = (grantedCapabilities: ['secrets:own'] | []) =>
+      executePluginHostCall({
+        pluginId: 'samples.demo',
+        method: 'secrets.protection',
+        params: {},
+        surface: 'worker',
+        grantedCapabilities,
+        services: createServices(vi.fn())
+      })
+    await expect(call(['secrets:own'])).resolves.toEqual({
+      ok: true,
+      value: { status: 'unavailable' }
+    })
+    await expect(call([])).resolves.toMatchObject({ ok: false, code: 'capability_denied' })
   })
 })
 

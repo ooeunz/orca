@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { PluginCapabilityKind } from '../capabilities/plugin-capabilities'
 import type { PluginSurface } from '../frames/plugin-protocol'
+import * as stored from './plugin-host-api-storage-schemas'
 
 /**
  * Host API 1 (`pluginApi: 1`) — the separately-versioned public facade plugins call. Every
@@ -58,39 +59,12 @@ const notificationsShowParams = z.strictObject({
 })
 const notificationsShowResult = z.object({ delivered: z.boolean() })
 
-const RESERVED_STORAGE_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
-const storageKeySchema = z
-  .string()
-  .min(1)
-  .max(256)
-  .refine((key) => !RESERVED_STORAGE_KEYS.has(key), 'reserved storage key')
-const pluginJsonValueSchema = z.json()
-export type PluginJsonValue = z.infer<typeof pluginJsonValueSchema>
-/** Caps keep per-plugin storage an honest key-value store, not a database. */
-export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 256 * 1024
-export const PLUGIN_STORAGE_TOTAL_MAX_BYTES = 5 * 1024 * 1024
-export const PLUGIN_STORAGE_KEY_LIMIT = 1024
-
-const storageGetParams = z.strictObject({ key: storageKeySchema })
-const storageGetResult = z.object({ value: pluginJsonValueSchema })
-const storageSetParams = z.strictObject({ key: storageKeySchema, value: pluginJsonValueSchema })
-const storageSetResult = z.object({ ok: z.literal(true) })
-const storageDeleteParams = z.strictObject({ key: storageKeySchema })
-const storageDeleteResult = z.object({ ok: z.literal(true) })
-const storageKeysParams = z.strictObject({}).optional()
-const storageKeysResult = z.object({ keys: z.array(z.string()).max(PLUGIN_STORAGE_KEY_LIMIT) })
-
-const secretsGetParams = z.strictObject({ key: storageKeySchema })
-const secretsGetResult = z.object({ value: z.string().nullable() })
-const secretsSetParams = z.strictObject({ key: storageKeySchema, value: z.string().max(64 * 1024) })
-const secretsSetResult = z.object({ ok: z.literal(true) })
-const secretsDeleteParams = z.strictObject({ key: storageKeySchema })
-const secretsDeleteResult = z.object({ ok: z.literal(true) })
-
-const settingsGetParams = z.strictObject({}).optional()
-const settingsGetResult = z.object({ settings: z.record(z.string(), pluginJsonValueSchema) })
-const settingsSetParams = z.strictObject({ key: storageKeySchema, value: pluginJsonValueSchema })
-const settingsSetResult = z.object({ ok: z.literal(true) })
+export {
+  PLUGIN_STORAGE_KEY_LIMIT,
+  PLUGIN_STORAGE_TOTAL_MAX_BYTES,
+  PLUGIN_STORAGE_VALUE_MAX_BYTES,
+  type PluginJsonValue
+} from './plugin-host-api-storage-schemas'
 
 /** Frame methods that only run on a click or key press in the frame (`userActivation`). */
 export const PLUGIN_FRAME_USER_METHODS = {
@@ -211,8 +185,8 @@ export const PLUGIN_HOST_API = {
     capability: 'storage:own',
     mutation: false,
     surfaces: WORKER_ONLY,
-    params: storageGetParams,
-    result: storageGetResult
+    params: stored.storageGetParams,
+    result: stored.storageGetResult
   }),
   'storage.set': spec({
     summary: "Writes a JSON value to the plugin's private store.",
@@ -221,8 +195,8 @@ export const PLUGIN_HOST_API = {
     capability: 'storage:own',
     mutation: true,
     surfaces: WORKER_ONLY,
-    params: storageSetParams,
-    result: storageSetResult
+    params: stored.storageSetParams,
+    result: stored.storageSetResult
   }),
   'storage.delete': spec({
     summary: "Removes a key from the plugin's private store.",
@@ -231,8 +205,8 @@ export const PLUGIN_HOST_API = {
     capability: 'storage:own',
     mutation: true,
     surfaces: WORKER_ONLY,
-    params: storageDeleteParams,
-    result: storageDeleteResult
+    params: stored.storageDeleteParams,
+    result: stored.storageDeleteResult
   }),
   'storage.keys': spec({
     summary: "Lists the keys in the plugin's private store.",
@@ -241,8 +215,8 @@ export const PLUGIN_HOST_API = {
     capability: 'storage:own',
     mutation: false,
     surfaces: WORKER_ONLY,
-    params: storageKeysParams,
-    result: storageKeysResult
+    params: stored.storageKeysParams,
+    result: stored.storageKeysResult
   }),
   'secrets.get': spec({
     summary: "Reads a secret from the plugin's encrypted secrets file; null when absent.",
@@ -251,8 +225,8 @@ export const PLUGIN_HOST_API = {
     capability: 'secrets:own',
     mutation: false,
     surfaces: WORKER_ONLY,
-    params: secretsGetParams,
-    result: secretsGetResult
+    params: stored.secretsGetParams,
+    result: stored.secretsGetResult
   }),
   'secrets.set': spec({
     summary: "Stores a secret in the plugin's encrypted secrets file.",
@@ -261,8 +235,8 @@ export const PLUGIN_HOST_API = {
     capability: 'secrets:own',
     mutation: true,
     surfaces: WORKER_ONLY,
-    params: secretsSetParams,
-    result: secretsSetResult
+    params: stored.secretsSetParams,
+    result: stored.secretsSetResult
   }),
   'secrets.delete': spec({
     summary: "Removes a secret from the plugin's encrypted secrets file.",
@@ -271,8 +245,19 @@ export const PLUGIN_HOST_API = {
     capability: 'secrets:own',
     mutation: true,
     surfaces: WORKER_ONLY,
-    params: secretsDeleteParams,
-    result: secretsDeleteResult
+    params: stored.secretsDeleteParams,
+    result: stored.secretsDeleteResult
+  }),
+  'secrets.protection': spec({
+    summary:
+      'How secrets are protected at rest: `os-keyring`, or `unavailable` (no OS key store, or Linux `basic_text`), where `secrets.set` fails.',
+    since: 1,
+    scope: 'plugin-private',
+    capability: 'secrets:own',
+    mutation: false,
+    surfaces: WORKER_ONLY,
+    params: stored.secretsProtectionParams,
+    result: stored.secretsProtectionResult
   }),
   'settings.get': spec({
     summary: 'Reads every setting the plugin owns.',
@@ -281,8 +266,8 @@ export const PLUGIN_HOST_API = {
     capability: 'settings:own',
     mutation: false,
     surfaces: WORKER_ONLY,
-    params: settingsGetParams,
-    result: settingsGetResult
+    params: stored.settingsGetParams,
+    result: stored.settingsGetResult
   }),
   'settings.set': spec({
     summary: 'Writes one setting the plugin owns.',
@@ -291,8 +276,8 @@ export const PLUGIN_HOST_API = {
     capability: 'settings:own',
     mutation: true,
     surfaces: WORKER_ONLY,
-    params: settingsSetParams,
-    result: settingsSetResult
+    params: stored.settingsSetParams,
+    result: stored.settingsSetResult
   }),
   'shell.openExternal': spec({
     summary:

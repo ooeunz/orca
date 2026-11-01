@@ -163,20 +163,27 @@ export function installMainWindowWebviewSecurity(mainWindow: BrowserWindow): voi
   })
 }
 
-/** Renderer markup is a request; main pins every preference a plugin guest runs with. */
+// Derived by Electron from the embedder (zoom follows the host window); everything else is pinned.
+const PLUGIN_FRAME_GUEST_INHERITED_PREFERENCES: ReadonlySet<string> = new Set(['zoomFactor'])
+
+/** Renderer markup is a request: main drops every preference it did not pin, then pins its set. */
 function hardenPluginFrameGuestPreferences(
   webPreferences: Electron.WebPreferences,
   preload: string,
   partition: string
 ): void {
-  // Clear legacy and inherited channels so the guest cannot pick up the main bridge or arguments.
-  Reflect.deleteProperty(webPreferences, 'preloadURL')
-  webPreferences.additionalArguments = [...PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS]
+  // Allowlist, not denylist: a preference Electron adds later cannot reach a plugin guest unreviewed.
+  for (const key of Object.keys(webPreferences)) {
+    if (!PLUGIN_FRAME_GUEST_INHERITED_PREFERENCES.has(key)) {
+      Reflect.deleteProperty(webPreferences, key)
+    }
+  }
   // Why not a typed field: Electron derives it from `allowpopups` before this event.
   Object.assign(webPreferences, { disablePopups: true })
   Object.assign(webPreferences, ORCA_BROWSER_GUEST_WEB_PREFERENCES, {
     partition,
     preload,
+    additionalArguments: [...PLUGIN_FRAME_GUEST_RENDERER_ARGUMENTS],
     sandbox: true,
     contextIsolation: true,
     nodeIntegration: false,

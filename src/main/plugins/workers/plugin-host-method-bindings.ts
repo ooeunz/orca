@@ -61,6 +61,7 @@ export type PluginHostServices = {
     ): { ok: true; value: string | null } | { ok: false; error: string }
     set(pluginId: string, key: string, value: string): { ok: true } | { ok: false; error: string }
     delete(pluginId: string, key: string): void
+    protection(): 'os-keyring' | 'unavailable'
   }
   desktop?: PluginDesktopFrameServices | null
   settings: {
@@ -186,6 +187,9 @@ const HANDLERS: Record<PluginHostMethodName, BoundPluginHostMethod> = {
     services.secrets.delete(pluginId, key)
     return OK
   }),
+  'secrets.protection': bind(api['secrets.protection'], async (_params, { services }) => ({
+    status: services.secrets.protection()
+  })),
   'settings.get': bind(api['settings.get'], async (_params, { pluginId, services }) => ({
     settings: services.settings.getAll(pluginId)
   })),

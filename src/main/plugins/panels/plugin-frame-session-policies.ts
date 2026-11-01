@@ -3,8 +3,8 @@ import { isAllowedPluginFrameRequestUrl } from './plugin-frame-request-policy'
 
 /**
  * Session-wide fences for one plugin partition: no network but the plugin's own origin, no
- * permission at all (clipboard writes included, as for srcdoc frames), no device pickers, no
- * downloads, no spellcheck dictionary fetches.
+ * permission at all (so no async Clipboard API; `execCommand('copy')` on a gesture still works),
+ * no device pickers, no downloads, no spellcheck dictionary fetches.
  */
 export function applyPluginFrameSessionPolicies(sess: Session, frameKey: string): void {
   sess.webRequest.onBeforeRequest((details, callback) => {

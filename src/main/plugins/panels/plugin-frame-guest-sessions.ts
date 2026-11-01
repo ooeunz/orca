@@ -27,7 +27,7 @@ import { currentPluginFrameThemeSnapshot } from './plugin-frame-theme-snapshot'
 /**
  * One locked-down session per plugin for its `<webview>` frames (plugin-isolated-frames.md):
  * served only from the plugin root, network cancelled at the session, a refusing proxy for what
- * webRequest never sees, no permissions but sanitized clipboard writes, no downloads.
+ * webRequest never sees, no permissions (copy works only on a gesture), no downloads.
  */
 
 export type PluginFrameGuestSource = {
@@ -265,15 +265,6 @@ export async function clearPluginFrameStorage(pluginKey: string): Promise<void> 
  *  and a kill-listed one loses its storage too. */
 export async function revokeUnapprovedPluginFrames(): Promise<void> {
   for (const [frameKey, pending] of sessionsByKey) {
-    const pluginKey = pluginKeyByFrameKey.get(frameKey)
-    if (!pluginKey) {
-      continue
-    }
-    const killListed = source?.isKillListed?.(pluginKey) === true
-    if (!killListed) {
-      // Leaving the kill list re-arms the one-time clear for a later listing.
-      killListCleared.delete(pluginKey)
-    }
     if (findApprovedPluginByFrameKey(frameKey)) {
       continue
     }
@@ -286,13 +277,24 @@ export async function revokeUnapprovedPluginFrames(): Promise<void> {
     }
     // Why re-check: an approval (e.g. a reinstall) can land while the session resolves, and its
     // fresh guest must survive this stale verdict.
-    if (findApprovedPluginByFrameKey(frameKey)) {
-      continue
+    if (!findApprovedPluginByFrameKey(frameKey)) {
+      closePluginFrameGuests(sess)
     }
-    closePluginFrameGuests(sess)
-    if (killListed && !killListCleared.has(pluginKey)) {
+  }
+  await clearKillListedFrameStorage()
+}
+
+/** Every discovered plugin, not only this run's sessions: storage from an earlier run counts too. */
+async function clearKillListedFrameStorage(): Promise<void> {
+  for (const pluginKey of source?.listPluginKeys() ?? []) {
+    if (source?.isKillListed?.(pluginKey) !== true) {
+      // Leaving the kill list re-arms the one-time clear for a later listing.
+      killListCleared.delete(pluginKey)
+    } else if (!killListCleared.has(pluginKey)) {
       killListCleared.add(pluginKey)
       await clearPluginFrameStorage(pluginKey)
+      // Clearing forgets the session, and with it the mark; keep it until the plugin leaves the list.
+      killListCleared.add(pluginKey)
     }
   }
 }

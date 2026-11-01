@@ -22,6 +22,7 @@ Methods whose capability is `none` need no capability but still need the plugin 
 | [`secrets.get`](#secretsget) | `secrets:own` | worker | no | 1.0 | Reads a secret from the plugin's encrypted secrets file; null when absent. |
 | [`secrets.set`](#secretsset) | `secrets:own` | worker | yes | 1.0 | Stores a secret in the plugin's encrypted secrets file. |
 | [`secrets.delete`](#secretsdelete) | `secrets:own` | worker | yes | 1.0 | Removes a secret from the plugin's encrypted secrets file. |
+| [`secrets.protection`](#secretsprotection) | `secrets:own` | worker | no | 1.1 | How secrets are protected at rest: `os-keyring`, or `unavailable` (no OS key store, or Linux `basic_text`), where `secrets.set` fails. |
 | [`settings.get`](#settingsget) | `settings:own` | worker | no | 1.0 | Reads every setting the plugin owns. |
 | [`settings.set`](#settingsset) | `settings:own` | worker | yes | 1.0 | Writes one setting the plugin owns. |
 | [`shell.openExternal`](#shellopenexternal) | none | panel, editor | no | 1.1 | Opens an http:, https: or mailto: URL in the default browser. Needs a click or key press in the frame; desktop app only. |
@@ -105,6 +106,14 @@ Removes a secret from the plugin's encrypted secrets file.
 
 ```ts
 (params: { key: string }) => { ok: true }
+```
+
+### `secrets.protection`
+
+How secrets are protected at rest: `os-keyring`, or `unavailable` (no OS key store, or Linux `basic_text`), where `secrets.set` fails.
+
+```ts
+(params: {}) => { status: "os-keyring" | "unavailable" }
 ```
 
 ### `settings.get`

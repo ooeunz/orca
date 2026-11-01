@@ -170,7 +170,7 @@ describe('revocation checks inside executePluginHostCall', () => {
       sendTerminalText,
       dispatchPluginNotification: vi.fn(),
       storage: { get: vi.fn(), set: vi.fn(), delete: vi.fn(), keys: vi.fn() },
-      secrets: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+      secrets: { get: vi.fn(), set: vi.fn(), delete: vi.fn(), protection: vi.fn() },
       settings: { getAll: vi.fn(), set: vi.fn() }
     }
     const outcome = await executePluginHostCall({

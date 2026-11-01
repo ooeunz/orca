@@ -149,3 +149,30 @@ describe('guest URL revision', () => {
     expect(await url()).toMatch(/\?rev=a{16}$/)
   })
 })
+
+describe('kill list and earlier runs', () => {
+  it("clears a kill-listed plugin's partition from an earlier run, once, without opening it", async () => {
+    const { bindPluginFrameGuests, revokeUnapprovedPluginFrames } =
+      await import('./plugin-frame-guest-sessions')
+    mkdirSync(join(mocks.userData, 'Partitions', `orca-plugin-${pluginFrameKey('acme.old')}`), {
+      recursive: true
+    })
+    const sess = { clearStorageData: vi.fn(async () => {}), clearCache: vi.fn(async () => {}) }
+    mocks.fromPartition.mockReset()
+    mocks.fromPartition.mockReturnValue(sess)
+    mocks.allWebContents.mockReturnValue([])
+    bindPluginFrameGuests({
+      findApprovedPlugin: () => null,
+      getDiscovered: () => [{ pluginKey: 'acme.old' }, { pluginKey: 'acme.never-opened' }],
+      onChanged: () => () => {},
+      options: { getPluginKillListEntry: () => ({ reason: 'bad' }) }
+    })
+    await revokeUnapprovedPluginFrames()
+    await revokeUnapprovedPluginFrames()
+    expect(mocks.fromPartition).toHaveBeenCalledOnce()
+    expect(mocks.fromPartition).toHaveBeenCalledWith(
+      `persist:orca-plugin-${pluginFrameKey('acme.old')}`
+    )
+    expect(sess.clearStorageData).toHaveBeenCalledOnce()
+  })
+})

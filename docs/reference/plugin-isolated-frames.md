@@ -36,7 +36,9 @@ Every plugin frame on desktop is an Electron `<webview>`:
     and the app-wide `dns-prefetch-disable` switch were measured and do not stop it.
 - **Storage**: uninstalling a plugin clears its partition (`clearStorageData` and `clearCache`).
   - Guest `setWebRTCIPHandlingPolicy('disable_non_proxied_udp')`.
-  - Permission request/check handlers deny everything, clipboard writes included (as for srcdoc frames);
+  - Permission request/check handlers deny everything, so `navigator.clipboard` reads and writes are
+    refused; `document.execCommand('copy'|'cut')` works only inside a user gesture, as on any web page
+    (pinned by `plugin-frame-guest-clipboard.electron.test.ts`);
     HID, serial, USB and Bluetooth choosers are cancelled.
   - `will-download` is cancelled; `setWindowOpenHandler` denies; navigation away from the plugin origin is
     cancelled.
