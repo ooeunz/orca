@@ -11,3 +11,14 @@ export const PLUGIN_DECLARATIVE_LIMITS = {
   maxEventArgs: 8,
   maxCallbackIdLength: 64
 } as const
+
+/** Host lane for `ui.render`/`ui.persist`; the guest preload's render lane mirrors it. */
+export const PLUGIN_DECLARATIVE_RENDER_LANE = {
+  maxBytes: 640 * 1024,
+  maxMessages: 200,
+  perMs: 10_000,
+  // Every tree the parser accepts must be metered, not refused: a node nests two levels (node,
+  // children array) plus props. The byte cap still bounds the walk's work.
+  maxDepth: PLUGIN_DECLARATIVE_LIMITS.maxDepth * 2 + 24,
+  maxObjects: PLUGIN_DECLARATIVE_LIMITS.maxNodes * 8 + 1024
+} as const

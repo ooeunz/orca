@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PLUGIN_DECLARATIVE_MESSAGES } from '../shared/plugins/declarative/plugin-declarative-message-names'
-import {
-  PLUGIN_FRAME_RENDER_LIMITS,
-  PLUGIN_FRAME_RENDER_WALK_LIMITS
-} from '../renderer/src/components/right-sidebar/plugin-frame-host-lanes'
+import { PLUGIN_DECLARATIVE_RENDER_LANE } from '../shared/plugins/declarative/plugin-declarative-limits'
 import {
   createPluginFrameSendBudget,
   PRELOAD_PLUGIN_FRAME_LANES
@@ -24,9 +21,9 @@ describe('guest preload render lane', () => {
       PLUGIN_DECLARATIVE_MESSAGES.render,
       PLUGIN_DECLARATIVE_MESSAGES.persist
     ])
-    expect(render.maxBytes).toBe(PLUGIN_FRAME_RENDER_LIMITS.maxBytes)
-    expect(render.maxNodes).toBe(PLUGIN_FRAME_RENDER_WALK_LIMITS.maxObjects)
-    expect(render.maxDepth).toBe(PLUGIN_FRAME_RENDER_WALK_LIMITS.maxDepth)
+    expect(render.maxBytes).toBe(PLUGIN_DECLARATIVE_RENDER_LANE.maxBytes)
+    expect(render.maxNodes).toBe(PLUGIN_DECLARATIVE_RENDER_LANE.maxObjects)
+    expect(render.maxDepth).toBe(PLUGIN_DECLARATIVE_RENDER_LANE.maxDepth)
   })
 
   it('sends trees the host accepts, past the shared 64 KiB and depth-100 caps', () => {

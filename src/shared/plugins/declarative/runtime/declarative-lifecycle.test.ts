@@ -115,24 +115,24 @@ describe('components panel lifecycle', () => {
     const { runtime, host } = booted()
     const disposed = vi.fn()
     const cleanup = vi.fn()
-    let signal: AbortSignal | null = null
-    let visible: boolean | null = null
+    // An object, not `let`s: TS cannot see the callback assign them before the checks.
+    const seen: { signal?: AbortSignal; visible?: boolean } = {}
     host.send('ui.hydrate', { panel: { id: 'todos' }, visible: false })
     await runtime.boot({
       setup: (ctx: OrcaPanelContext) => {
         expect(ctx.panel).toEqual({ id: 'todos' })
         ctx.subscriptions.push({ dispose: disposed })
-        signal = ctx.signal
-        visible = read(ctx.visible)
+        seen.signal = ctx.signal
+        seen.visible = read(ctx.visible)
         return cleanup
       },
       default: () => h('Text', null, 'x')
     })
-    expect(visible).toBe(false)
+    expect(seen.visible).toBe(false)
     runtime.dispose()
     expect(disposed).toHaveBeenCalledOnce()
     expect(cleanup).toHaveBeenCalledOnce()
-    expect(signal?.aborted).toBe(true)
+    expect(seen.signal?.aborted).toBe(true)
   })
 
   it('says clearly when the module has no component', async () => {

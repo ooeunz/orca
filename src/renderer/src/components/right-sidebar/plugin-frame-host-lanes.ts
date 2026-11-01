@@ -1,4 +1,4 @@
-import { PLUGIN_DECLARATIVE_LIMITS } from '../../../../shared/plugins/declarative/plugin-declarative-limits'
+import { PLUGIN_DECLARATIVE_RENDER_LANE } from '../../../../shared/plugins/declarative/plugin-declarative-limits'
 import { PLUGIN_DECLARATIVE_MESSAGES } from '../../../../shared/plugins/declarative/plugin-declarative-message-names'
 import type { PluginFrameHello } from '../../../../shared/plugins/frames/plugin-frame-bridge'
 import { PLUGIN_FRAME_IPC_CHANNEL } from '../../../../shared/plugins/frames/plugin-frame-guest'
@@ -106,17 +106,9 @@ export function createPluginFrameGestureGate(
 }
 
 const SAVE_AS_LIMITS = { maxBytes: PLUGIN_SAVE_AS_MAX_BYTES + 4096, maxMessages: 5, perMs: 10_000 }
-/** `ui.render`/`ui.persist`; the guest preload's render lane mirrors these (pinned by a test). */
-export const PLUGIN_FRAME_RENDER_LIMITS = { maxBytes: 640 * 1024, maxMessages: 200, perMs: 10_000 }
-/**
- * Size-walk caps for `ui.render`, derived from the tree limits so every tree the parser would
- * accept is metered rather than refused: a node nests two levels (node, children array) plus props.
- * The byte cap still bounds the walk's work.
- */
-export const PLUGIN_FRAME_RENDER_WALK_LIMITS = {
-  maxDepth: PLUGIN_DECLARATIVE_LIMITS.maxDepth * 2 + 24,
-  maxObjects: PLUGIN_DECLARATIVE_LIMITS.maxNodes * 8 + 1024
-}
+const { maxBytes, maxMessages, perMs, maxDepth, maxObjects } = PLUGIN_DECLARATIVE_RENDER_LANE
+const RENDER_LIMITS = { maxBytes, maxMessages, perMs }
+export const PLUGIN_FRAME_RENDER_WALK_LIMITS = { maxDepth, maxObjects }
 
 export type PluginFrameLanes = { save: PanelMessageBudget; render: PanelMessageBudget }
 
@@ -125,7 +117,7 @@ export function createPluginFrameLanes(
 ): PluginFrameLanes {
   return {
     save: overrides.save ?? createPanelMessageBudget(SAVE_AS_LIMITS),
-    render: overrides.render ?? createPanelMessageBudget(PLUGIN_FRAME_RENDER_LIMITS)
+    render: overrides.render ?? createPanelMessageBudget(RENDER_LIMITS)
   }
 }
 
