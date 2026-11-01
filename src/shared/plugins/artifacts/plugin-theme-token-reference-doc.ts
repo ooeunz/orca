@@ -3,7 +3,7 @@ import {
   PLUGIN_APP_THEME_REQUIRED_TOKENS,
   PLUGIN_APP_THEME_TOKENS
 } from './plugin-theme-artifact'
-import { PANEL_DESIGN_TOKEN_ALLOWLIST } from '../frames/plugin-panel-shell'
+import { PANEL_DESIGN_TOKEN_ALLOWLIST } from '../frames/plugin-panel-design-tokens'
 
 const REQUIRED = new Set<string>(PLUGIN_APP_THEME_REQUIRED_TOKENS)
 
